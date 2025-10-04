@@ -57,6 +57,37 @@ npm start
 
 El servidor estará disponible en `http://localhost:3000`
 
+## Ejecución con PM2
+
+Para ejecutar el servicio en producción usando [pm2](https://pm2.keymetrics.io/):
+
+1. Instala pm2 globalmente si no lo tienes:
+  ```bash
+  npm install -g pm2
+  ```
+
+2. Inicia el servicio:
+  ```bash
+  pm2 start src/app.js --name sso-google-auth
+  ```
+
+3. Guarda el proceso para reinicio automático:
+  ```bash
+  pm2 save
+  ```
+
+4. (Opcional) Para iniciar pm2 al arrancar el sistema:
+  ```bash
+  pm2 startup
+  ```
+  Sigue las instrucciones que te muestra el comando.
+
+5. Monitorea el servicio:
+  ```bash
+  pm2 status
+  pm2 logs sso-google-auth
+  ```
+
 ## Endpoints Disponibles
 
 ### Autenticación
