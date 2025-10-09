@@ -70,6 +70,12 @@ if (config.server.nodeEnv !== 'development' || process.env.ENABLE_RATE_LIMIT ===
   app.use(generalLimiter);
 }
 
+// Middleware temporal para depuración de sesión
+app.use((req, res, next) => {
+  console.log('Contenido de la sesión:', req.session);
+  next();
+});
+
 // Rutas
 app.use('/auth', authRoutes);
 
