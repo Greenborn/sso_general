@@ -18,11 +18,20 @@ router.get('/google',
   extractRequestInfo,
   validateOAuthParams,
   authLimiter,
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-    accessType: 'offline',
-    prompt: 'select_account'
-  })
+  (req, res, next) => {
+    // Codificar los datos en el state parameter para preservarlos durante OAuth
+    const state = Buffer.from(JSON.stringify({
+      url_redireccion_app: req.session.oauth_redirect_url,
+      unique_id: req.session.oauth_unique_id
+    })).toString('base64');
+
+    passport.authenticate('google', {
+      scope: ['profile', 'email'],
+      accessType: 'offline',
+      prompt: 'select_account',
+      state: state
+    })(req, res, next);
+  }
 );
 
 /**
@@ -38,86 +47,66 @@ router.get('/google/callback',
   }),
   async (req, res) => {
     try {
-      // Persistir datos de la sesión en variables locales
-      const tempRedirectUrl = req.session.oauth_redirect_url;
-      const tempUniqueId = req.session.oauth_unique_id;
+      console.log('Query params en callback:', req.query);
 
-      // Middleware para manejar passport.authenticate
-      passport.authenticate('google', { 
-        failureRedirect: config.redirect.failure,
-        session: true
-      })(req, res, async () => {
+      // Recuperar datos del state parameter que Google devuelve
+      let redirectUrl, uniqueId;
+      
+      if (req.query.state) {
         try {
-          // Restaurar datos de la sesión después de passport.authenticate
-          req.session.oauth_redirect_url = tempRedirectUrl;
-          req.session.oauth_unique_id = tempUniqueId;
-
-          console.log('Datos restaurados en la sesión:', {
-            oauth_redirect_url: req.session.oauth_redirect_url,
-            oauth_unique_id: req.session.oauth_unique_id
-          });
-
-          // Continuar con el flujo normal
-          const redirectUrl = req.session.oauth_redirect_url;
-          const uniqueId = req.session.oauth_unique_id;
-
-          if (!redirectUrl || !uniqueId) {
-            return res.redirect(`${config.redirect.failure}?error=MISSING_PARAMS`);
-          }
-
-          // Procesar callback y generar token temporal
-          const result = await AuthService.handleGoogleCallback(
-            req.user.profile,
-            req.user.accessToken,
-            req.user.refreshToken,
-            uniqueId
-          );
-
-          // Limpiar datos temporales de la sesión
-          delete req.session.oauth_redirect_url;
-          delete req.session.oauth_unique_id;
-
-          // Log de auditoría
-          await AuditLog.logLogin(
-            result.user.id,
-            uniqueId,
-            req.clientIp,
-            req.userAgent,
-            true,
-            { 
-              step: 'google_callback',
-              redirectUrl: redirectUrl
-            }
-          );
-
-          // Guardar el token temporal en la sesión para usarlo en /auth/success
-          req.session.temporal_token = result.temporalToken;
-          req.session.oauth_redirect_url = redirectUrl;
-          req.session.oauth_unique_id = uniqueId;
-
-          // Redirigir a SUCCESS_REDIRECT_URL (endpoint del servicio SSO)
-          res.redirect(config.redirect.success);
-        } catch (error) {
-          console.error('Error en callback de Google:', error);
-          
-          await AuditLog.logAuthError(
-            req.session.oauth_unique_id,
-            req.clientIp,
-            req.userAgent,
-            {
-              error: error.message,
-              step: 'google_callback'
-            }
-          );
-
-          res.redirect(`${config.redirect.failure}?error=AUTH_ERROR`);
+          const stateData = JSON.parse(Buffer.from(req.query.state, 'base64').toString());
+          redirectUrl = stateData.url_redireccion_app;
+          uniqueId = stateData.unique_id;
+          console.log('Datos recuperados del state parameter:', { redirectUrl, uniqueId });
+        } catch (e) {
+          console.error('Error decodificando state parameter:', e);
         }
-      });
+      }
+
+      // Si no hay datos en state, intentar desde la sesión (fallback)
+      if (!redirectUrl || !uniqueId) {
+        redirectUrl = req.session.oauth_redirect_url;
+        uniqueId = req.session.oauth_unique_id;
+        console.log('Datos recuperados de la sesión (fallback):', { redirectUrl, uniqueId });
+      }
+
+      if (!redirectUrl || !uniqueId) {
+        return res.redirect(`${config.redirect.failure}?error=MISSING_PARAMS`);
+      }
+
+      // Procesar callback y generar token temporal
+      const result = await AuthService.handleGoogleCallback(
+        req.user.profile,
+        req.user.accessToken,
+        req.user.refreshToken,
+        uniqueId
+      );
+
+      // Log de auditoría
+      await AuditLog.logLogin(
+        result.user.id,
+        uniqueId,
+        req.clientIp,
+        req.userAgent,
+        true,
+        { 
+          step: 'google_callback',
+          redirectUrl: redirectUrl
+        }
+      );
+
+      // Guardar el token temporal en la sesión para usarlo en /auth/success
+      req.session.temporal_token = result.temporalToken;
+      req.session.oauth_redirect_url = redirectUrl;
+      req.session.oauth_unique_id = uniqueId;
+
+      // Redirigir a SUCCESS_REDIRECT_URL (endpoint del servicio SSO)
+      res.redirect(config.redirect.success);
     } catch (error) {
       console.error('Error en callback de Google:', error);
       
       await AuditLog.logAuthError(
-        req.session.oauth_unique_id,
+        uniqueId || null,
         req.clientIp,
         req.userAgent,
         {
