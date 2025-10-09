@@ -46,15 +46,15 @@ const validateOAuthParams = async (req, res, next) => {
   }
 
   // Depurar el valor decodificado de url_redireccion_app
-  console.log('Valor decodificado de url_redireccion_app:', decodedUrl);
+  //console.log('Valor decodificado de url_redireccion_app:', decodedUrl);
 
   // Eliminar el fragmento (#) de la URL antes de validarla
   const urlWithoutFragment = decodedUrl.split('#')[0];
-  console.log('URL sin fragmento:', urlWithoutFragment);
+  //console.log('URL sin fragmento:', urlWithoutFragment);
 
   // Validar que la URL comience con http:// o https://
   const isValidUrl = decodedUrl.startsWith('http://') || decodedUrl.startsWith('https://');
-  console.log('Resultado de validación básica de URL:', isValidUrl);
+  //console.log('Resultado de validación básica de URL:', isValidUrl);
 
   if (!isValidUrl) {
     return res.status(400).json({
@@ -66,7 +66,7 @@ const validateOAuthParams = async (req, res, next) => {
 
   // Depurar la lista blanca
   const isAllowed = await AllowedApp.isUrlAllowed(decodedUrl);
-  console.log('Resultado de isUrlAllowed:', isAllowed);
+  //console.log('Resultado de isUrlAllowed:', isAllowed);
 
   if (!isAllowed) {
     return res.status(403).json({
