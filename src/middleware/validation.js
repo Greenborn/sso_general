@@ -33,21 +33,41 @@ const validateOAuthParams = async (req, res, next) => {
     });
   }
 
-  // Validar formato de URL
-  if (!validator.isURL(url_redireccion_app, { 
-    protocols: ['http', 'https'],
-    require_protocol: true
-  })) {
+  // Decodificar el parámetro url_redireccion_app antes de validarlo
+  let decodedUrl;
+  try {
+    decodedUrl = decodeURIComponent(url_redireccion_app);
+  } catch (e) {
     return res.status(400).json({
       success: false,
-      message: 'El parámetro url_redireccion_app debe ser una URL válida',
+      message: 'El parámetro url_redireccion_app no es una URL válida (error de codificación)',
+      error: 'INVALID_REDIRECT_URL_ENCODING'
+    });
+  }
+
+  // Depurar el valor decodificado de url_redireccion_app
+  //console.log('Valor decodificado de url_redireccion_app:', decodedUrl);
+
+  // Eliminar el fragmento (#) de la URL antes de validarla
+  const urlWithoutFragment = decodedUrl.split('#')[0];
+  //console.log('URL sin fragmento:', urlWithoutFragment);
+
+  // Validar que la URL comience con http:// o https://
+  const isValidUrl = decodedUrl.startsWith('http://') || decodedUrl.startsWith('https://');
+  //console.log('Resultado de validación básica de URL:', isValidUrl);
+
+  if (!isValidUrl) {
+    return res.status(400).json({
+      success: false,
+      message: 'El parámetro url_redireccion_app debe comenzar con http:// o https://',
       error: 'INVALID_REDIRECT_URL'
     });
   }
 
-  // Verificar que la URL esté en la lista blanca
-  const isAllowed = await AllowedApp.isUrlAllowed(url_redireccion_app);
-  
+  // Depurar la lista blanca
+  const isAllowed = await AllowedApp.isUrlAllowed(decodedUrl);
+  //console.log('Resultado de isUrlAllowed:', isAllowed);
+
   if (!isAllowed) {
     return res.status(403).json({
       success: false,
@@ -57,7 +77,7 @@ const validateOAuthParams = async (req, res, next) => {
   }
 
   // Guardar en la sesión para usar después del callback
-  req.session.oauth_redirect_url = url_redireccion_app;
+  req.session.oauth_redirect_url = decodedUrl;
   req.session.oauth_unique_id = unique_id;
 
   next();
