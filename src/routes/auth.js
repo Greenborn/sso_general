@@ -38,52 +38,81 @@ router.get('/google/callback',
   }),
   async (req, res) => {
     try {
-      console.log('Datos de la sesión al inicio del callback:', req.session);
+      // Persistir datos de la sesión en variables locales
+      const tempRedirectUrl = req.session.oauth_redirect_url;
+      const tempUniqueId = req.session.oauth_unique_id;
 
-      // Guardar datos de la sesión antes de procesar el callback
-      const { oauth_redirect_url, oauth_unique_id } = req.session;
-      console.log('Guardando datos de la sesión:', { oauth_redirect_url, oauth_unique_id });
+      // Middleware para manejar passport.authenticate
+      passport.authenticate('google', { 
+        failureRedirect: config.redirect.failure,
+        session: true
+      })(req, res, async () => {
+        try {
+          // Restaurar datos de la sesión después de passport.authenticate
+          req.session.oauth_redirect_url = tempRedirectUrl;
+          req.session.oauth_unique_id = tempUniqueId;
 
-      // Obtener datos de la sesión
-      const redirectUrl = req.session.oauth_redirect_url;
-      const uniqueId = req.session.oauth_unique_id;
+          console.log('Datos restaurados en la sesión:', {
+            oauth_redirect_url: req.session.oauth_redirect_url,
+            oauth_unique_id: req.session.oauth_unique_id
+          });
 
-      if (!redirectUrl || !uniqueId) {
-        return res.redirect(`${config.redirect.failure}?error=MISSING_PARAMS`);
-      }
+          // Continuar con el flujo normal
+          const redirectUrl = req.session.oauth_redirect_url;
+          const uniqueId = req.session.oauth_unique_id;
 
-      // Procesar callback y generar token temporal
-      const result = await AuthService.handleGoogleCallback(
-        req.user.profile,
-        req.user.accessToken,
-        req.user.refreshToken,
-        uniqueId
-      );
+          if (!redirectUrl || !uniqueId) {
+            return res.redirect(`${config.redirect.failure}?error=MISSING_PARAMS`);
+          }
 
-      // Limpiar datos temporales de la sesión
-      delete req.session.oauth_redirect_url;
-      delete req.session.oauth_unique_id;
+          // Procesar callback y generar token temporal
+          const result = await AuthService.handleGoogleCallback(
+            req.user.profile,
+            req.user.accessToken,
+            req.user.refreshToken,
+            uniqueId
+          );
 
-      // Log de auditoría
-      await AuditLog.logLogin(
-        result.user.id,
-        uniqueId,
-        req.clientIp,
-        req.userAgent,
-        true,
-        { 
-          step: 'google_callback',
-          redirectUrl: redirectUrl
+          // Limpiar datos temporales de la sesión
+          delete req.session.oauth_redirect_url;
+          delete req.session.oauth_unique_id;
+
+          // Log de auditoría
+          await AuditLog.logLogin(
+            result.user.id,
+            uniqueId,
+            req.clientIp,
+            req.userAgent,
+            true,
+            { 
+              step: 'google_callback',
+              redirectUrl: redirectUrl
+            }
+          );
+
+          // Guardar el token temporal en la sesión para usarlo en /auth/success
+          req.session.temporal_token = result.temporalToken;
+          req.session.oauth_redirect_url = redirectUrl;
+          req.session.oauth_unique_id = uniqueId;
+
+          // Redirigir a SUCCESS_REDIRECT_URL (endpoint del servicio SSO)
+          res.redirect(config.redirect.success);
+        } catch (error) {
+          console.error('Error en callback de Google:', error);
+          
+          await AuditLog.logAuthError(
+            req.session.oauth_unique_id,
+            req.clientIp,
+            req.userAgent,
+            {
+              error: error.message,
+              step: 'google_callback'
+            }
+          );
+
+          res.redirect(`${config.redirect.failure}?error=AUTH_ERROR`);
         }
-      );
-
-      // Guardar el token temporal en la sesión para usarlo en /auth/success
-      req.session.temporal_token = result.temporalToken;
-      req.session.oauth_redirect_url = redirectUrl;
-      req.session.oauth_unique_id = uniqueId;
-
-      // Redirigir a SUCCESS_REDIRECT_URL (endpoint del servicio SSO)
-      res.redirect(config.redirect.success);
+      });
     } catch (error) {
       console.error('Error en callback de Google:', error);
       
