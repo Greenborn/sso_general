@@ -45,10 +45,14 @@ const validateOAuthParams = async (req, res, next) => {
     });
   }
 
-  // Validar formato de URL
+  // Depurar el valor decodificado de url_redireccion_app
+  console.log('Valor decodificado de url_redireccion_app:', decodedUrl);
+
+  // Validar formato de URL con opciones ajustadas
   if (!validator.isURL(decodedUrl, { 
     protocols: ['http', 'https'],
-    require_protocol: true
+    require_protocol: true,
+    allow_fragments: true // Permitir fragmentos en la URL
   })) {
     return res.status(400).json({
       success: false,
