@@ -49,11 +49,15 @@ const validateOAuthParams = async (req, res, next) => {
   console.log('Valor decodificado de url_redireccion_app:', decodedUrl);
 
   // Validar formato de URL con opciones ajustadas
-  if (!validator.isURL(decodedUrl, { 
+  // Depurar la validación con validator.isURL
+  const isValidUrl = validator.isURL(decodedUrl, { 
     protocols: ['http', 'https'],
     require_protocol: true,
     allow_fragments: true // Permitir fragmentos en la URL
-  })) {
+  });
+  console.log('Resultado de validator.isURL:', isValidUrl);
+
+  if (!isValidUrl) {
     return res.status(400).json({
       success: false,
       message: 'El parámetro url_redireccion_app debe ser una URL válida',
@@ -61,9 +65,10 @@ const validateOAuthParams = async (req, res, next) => {
     });
   }
 
-  // Verificar que la URL esté en la lista blanca
+  // Depurar la lista blanca
   const isAllowed = await AllowedApp.isUrlAllowed(decodedUrl);
-  
+  console.log('Resultado de isUrlAllowed:', isAllowed);
+
   if (!isAllowed) {
     return res.status(403).json({
       success: false,
