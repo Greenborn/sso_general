@@ -103,45 +103,56 @@ npm start
 ### Diagrama del Flujo
 
 ```
-App Cliente                SSO Service              Google OAuth           MariaDB
-     │                          │                         │                    │
-     │ 1. GET /auth/google?     │                         │                    │
-     │    params                │                         │                    │
-     ├─────────────────────────>│                         │                    │
-     │                          │ 2. Redirect             │                    │
-     │                          ├────────────────────────>│                    │
-     │                          │                         │                    │
-     │                          │ 3. User Login           │                    │
-     │                          │<────────────────────────┤                    │
-     │                          │                         │                    │
-     │                          │ 4. Save User            │                    │
-     │                          ├────────────────────────────────────────────>│
-     │ 5. Redirect + token      │                         │                    │
-     │<─────────────────────────┤                         │                    │
-     │                          │                         │                    │
-     │ 6. POST /auth/login      │                         │                    │
-     ├─────────────────────────>│                         │                    │
-     │                          │ 7. Create Session       │                    │
-     │                          ├────────────────────────────────────────────>│
-     │ 8. bearer_token          │                         │                    │
-     │<─────────────────────────┤                         │                    │
+App Cliente            SSO Service                Google OAuth           MariaDB
+     │                      │                           │                    │
+     │ 1. GET /auth/google? │                           │                    │
+     │    params            │                           │                    │
+     ├─────────────────────>│                           │                    │
+     │                      │ 2. Redirect               │                    │
+     │                      ├──────────────────────────>│                    │
+     │                      │                           │                    │
+     │                      │ 3. User Login             │                    │
+     │                      │<──────────────────────────┤                    │
+     │                      │                           │                    │
+     │                      │ 4. Callback: Save User    │                    │
+     │                      ├───────────────────────────────────────────────>│
+     │                      │                           │                    │
+     │                      │ 5. Redirect /auth/success │                    │
+     │                      │    (SUCCESS_REDIRECT_URL) │                    │
+     │                      │                           │                    │
+     │ 6. Redirect + token  │                           │                    │
+     │<─────────────────────┤                           │                    │
+     │                      │                           │                    │
+     │ 7. POST /auth/login  │                           │                    │
+     ├─────────────────────>│                           │                    │
+     │                      │ 8. Create Session         │                    │
+     │                      ├───────────────────────────────────────────────>│
+     │ 9. bearer_token      │                           │                    │
+     │<─────────────────────┤                           │                    │
 ```
 
 ### Pasos Detallados
 
 1. **Iniciar autenticación**: App redirige a:
-   ```
-   GET https://auth.greenborn.com.ar/auth/google?url_redireccion_app=https://tu-app.com/callback&unique_id=abc123
-   ```
+  ```
+  GET https://auth.greenborn.com.ar/auth/google?url_redireccion_app=https%3A%2F%2Fbuscar.mismascotas.top&unique_id=abc123
+  # (Recomendado: codificar la URL con encodeURIComponent)
+  ```
 
 2. **Usuario se autentica con Google**
 
-3. **SSO redirige con token temporal**:
+3. **SSO procesa el callback de Google**:
+   - Crea o actualiza el usuario en la base de datos
+   - Genera un token temporal (válido por 10 minutos)
+   - Guarda los datos en la sesión
+   - Redirige a `SUCCESS_REDIRECT_URL` (endpoint del servicio SSO: `/auth/success`)
+
+4. **SSO redirige a la app con token temporal**:
    ```
-   https://tu-app.com/callback?token=eyJhbGc...&unique_id=abc123
+   https://buscar.mismascotas.top?token=eyJhbGc...&unique_id=abc123
    ```
 
-4. **App obtiene bearer token**:
+5. **App obtiene bearer token**:
    ```bash
    POST https://auth.greenborn.com.ar/auth/login
    Content-Type: application/json
@@ -149,7 +160,7 @@ App Cliente                SSO Service              Google OAuth           Maria
    { "token": "eyJhbGc..." }
    ```
 
-5. **SSO retorna bearer token**:
+6. **SSO retorna bearer token**:
    ```json
    {
      "success": true,
@@ -161,10 +172,12 @@ App Cliente                SSO Service              Google OAuth           Maria
    }
    ```
 
-6. **App usa bearer token** en cada petición:
+7. **App usa bearer token** en cada petición:
    ```
    Authorization: Bearer eyJhbGc...
    ```
+
+> **Nota importante**: La interacción con Google OAuth ocurre completamente dentro del servicio SSO. El usuario nunca sale del dominio `auth.greenborn.com.ar` hasta que se completa la autenticación y se genera el token temporal. Luego, el servicio redirige a la URL de la app cliente especificada en `url_redireccion_app`.
 
 ## 🔌 API Endpoints
 
@@ -173,13 +186,35 @@ App Cliente                SSO Service              Google OAuth           Maria
 Inicia el proceso de autenticación con Google.
 
 **Query Parameters:**
-- `url_redireccion_app` (required): URL de redirección
+- `url_redireccion_app` (required): URL de redirección (codificada con encodeURIComponent)
 - `unique_id` (required): ID único para trazabilidad
 
 **Ejemplo:**
 ```bash
-https://auth.greenborn.com.ar/auth/google?url_redireccion_app=https://app.com/callback&unique_id=req_12345
+https://auth.greenborn.com.ar/auth/google?url_redireccion_app=https%3A%2F%2Fapp.com%2Fcallback&unique_id=req_12345
 ```
+
+**Flujo:**
+1. Valida los parámetros y la URL en la lista blanca
+2. Guarda los datos en la sesión del servidor
+3. Redirige al usuario a Google para autenticación
+4. Google redirige a `/auth/google/callback` (interno del SSO)
+5. SSO procesa la autenticación y redirige a `/auth/success` (SUCCESS_REDIRECT_URL)
+6. `/auth/success` redirige finalmente a `url_redireccion_app` con el token temporal
+
+---
+
+### `GET /auth/success`
+
+Endpoint intermedio del servicio SSO (definido en SUCCESS_REDIRECT_URL).
+
+**Descripción:**
+- Recibe el control después de que Google autentica al usuario
+- Obtiene los datos de la sesión (token temporal, URL de redirección, unique_id)
+- Construye la URL final con los parámetros
+- Redirige a la aplicación cliente
+
+**Nota:** Este endpoint es parte del flujo interno del SSO. Las aplicaciones cliente no lo llaman directamente.
 
 ---
 
@@ -269,6 +304,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Lista sesiones activas del usuario.
 
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
 **Response:**
 ```json
 {
@@ -286,6 +326,30 @@ Lista sesiones activas del usuario.
   }
 }
 ```
+
+---
+
+### `GET /auth/failure`
+
+Endpoint de error (definido en FAILURE_REDIRECT_URL).
+
+**Query Parameters:**
+- `error`: Código del error ocurrido
+
+**Response:**
+```json
+{
+  "success": false,
+  "message": "Fallo en la autenticación con Google",
+  "error": "AUTH_ERROR"
+}
+```
+
+**Códigos de error comunes:**
+- `MISSING_PARAMS`: Faltan parámetros en la sesión
+- `AUTH_ERROR`: Error general de autenticación
+- `UNAUTHORIZED_REDIRECT_URL`: URL no autorizada
+- `INVALID_UNIQUE_ID`: ID único inválido
 
 ## 🗄️ Estructura de Base de Datos
 

@@ -71,11 +71,13 @@ router.get('/google/callback',
         }
       );
 
-      // Construir URL de redirección con token
-      const separator = redirectUrl.includes('?') ? '&' : '?';
-      const finalUrl = `${redirectUrl}${separator}token=${result.temporalToken}&unique_id=${uniqueId}`;
+      // Guardar el token temporal en la sesión para usarlo en /auth/success
+      req.session.temporal_token = result.temporalToken;
+      req.session.oauth_redirect_url = redirectUrl;
+      req.session.oauth_unique_id = uniqueId;
 
-      res.redirect(finalUrl);
+      // Redirigir a SUCCESS_REDIRECT_URL (endpoint del servicio SSO)
+      res.redirect(config.redirect.success);
     } catch (error) {
       console.error('Error en callback de Google:', error);
       
@@ -333,14 +335,46 @@ router.get('/status',
 );
 
 /**
- * GET /auth/success (legacy endpoint)
+ * GET /auth/success
+ * Punto intermedio después de autenticación exitosa
+ * Recibe los datos de sesión y redirige a la app cliente con el token
  */
-router.get('/success', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Proceso de autenticación iniciado',
-    note: 'Este endpoint es solo informativo. Los tokens se entregan a través de la URL de redirección.'
-  });
+router.get('/success', async (req, res) => {
+  try {
+    // Obtener datos de la sesión
+    const redirectUrl = req.session.oauth_redirect_url;
+    const uniqueId = req.session.oauth_unique_id;
+    const temporalToken = req.session.temporal_token;
+
+    // Validar que existan los datos necesarios
+    if (!redirectUrl || !uniqueId || !temporalToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan datos de autenticación en la sesión',
+        error: 'MISSING_SESSION_DATA'
+      });
+    }
+
+    // Limpiar datos de la sesión
+    delete req.session.oauth_redirect_url;
+    delete req.session.oauth_unique_id;
+    delete req.session.temporal_token;
+
+    // Construir URL de redirección con token
+    const separator = redirectUrl.includes('?') ? '&' : '?';
+    const finalUrl = `${redirectUrl}${separator}token=${temporalToken}&unique_id=${uniqueId}`;
+
+    // Redirigir a la app cliente
+    res.redirect(finalUrl);
+  } catch (error) {
+    console.error('Error en /auth/success:', error);
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error al procesar redirección',
+      error: error.message
+    });
+  }
 });
 
 /**
