@@ -38,6 +38,8 @@ router.get('/google/callback',
   }),
   async (req, res) => {
     try {
+      console.log('Datos de la sesión al inicio del callback:', req.session);
+
       // Obtener datos de la sesión
       const redirectUrl = req.session.oauth_redirect_url;
       const uniqueId = req.session.oauth_unique_id;
