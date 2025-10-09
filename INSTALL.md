@@ -105,7 +105,7 @@ Deberías ver:
 **Opción A: Usando el script**
 
 ```bash
-node scripts/add-allowed-app.js "MisMascotas" "https://buscar.mismascotas.top,https://buscar.mismascotas.top/auth/callback"
+node scripts/add-allowed-app.js "MisMascotas" "https://buscar.mismascotas.top/#/login-redirect,http://localhost:3001/#/login-redirect"
 ```
 
 **Opción B: Manualmente en MySQL**
@@ -116,12 +116,19 @@ mysql -u root -p sso_general
 
 ```sql
 INSERT INTO allowed_apps (app_name, allowed_redirect_urls, is_active) VALUES
-('MisMascotas', '["https://buscar.mismascotas.top", "https://buscar.mismascotas.top/auth/callback"]', 1);
+('MisMascotas', '["https://buscar.mismascotas.top/#/login-redirect", "http://localhost:3001/#/login-redirect"]', 1);
 
 -- Para desarrollo local
 INSERT INTO allowed_apps (app_name, allowed_redirect_urls, is_active) VALUES
-('LocalDev', '["http://localhost:3001", "http://localhost:3001/auth/callback"]', 1);
+('LocalDev', '["http://localhost:3001/#/callback", "http://localhost:3001/#/login-redirect"]', 1);
 ```
+
+**Nota importante:** Las URLs pueden incluir fragmentos (`#`) y rutas completas. Por ejemplo:
+- ✅ `http://localhost:3001/#/login-redirect`
+- ✅ `https://app.com/#/auth/callback`
+- ✅ `https://app.com/callback`
+
+El sistema decodifica automáticamente URLs codificadas y valida que comiencen con `http://` o `https://`.
 
 ### 9️⃣ Iniciar Servidor
 
@@ -263,9 +270,28 @@ FLUSH PRIVILEGES;
 ### Error: "URL de redirección no autorizada"
 
 ```bash
-# Agregar URL a la lista blanca
-node scripts/add-allowed-app.js "NombreApp" "https://tu-app.com"
+# Agregar URL a la lista blanca (incluyendo fragmentos si es necesario)
+node scripts/add-allowed-app.js "NombreApp" "https://tu-app.com/#/callback,http://localhost:3001/#/callback"
 ```
+
+### Error: "El parámetro url_redireccion_app debe ser una URL válida"
+
+**Causas comunes:**
+- La URL no comienza con `http://` o `https://`
+- La URL no está en la lista blanca de aplicaciones permitidas
+
+**Soluciones:**
+```bash
+# 1. Verificar que la URL esté en la lista blanca
+mysql -u root -p sso_general -e "SELECT * FROM allowed_apps WHERE is_active = 1;"
+
+# 2. Agregar la URL si falta
+node scripts/add-allowed-app.js "MiApp" "http://localhost:3001/#/login-redirect"
+
+# 3. Verificar formato correcto (debe empezar con http:// o https://)
+```
+
+**Nota:** El sistema acepta URLs con fragmentos (`#`) y decodifica automáticamente URLs codificadas.
 
 ### Sesiones no persisten
 

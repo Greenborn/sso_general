@@ -85,8 +85,10 @@ Insertar en la tabla `allowed_apps`:
 
 ```sql
 INSERT INTO allowed_apps (app_name, allowed_redirect_urls, is_active) VALUES
-('MisMascotas', '["https://buscar.mismascotas.top", "https://buscar.mismascotas.top/auth/callback"]', 1);
+('MisMascotas', '["https://buscar.mismascotas.top/#/login-redirect", "http://localhost:3001/#/login-redirect"]', 1);
 ```
+
+**Nota:** Las URLs pueden incluir fragmentos (`#`) y rutas completas. El sistema decodifica automáticamente URLs codificadas y valida que comiencen con `http://` o `https://`.
 
 ### 7. Iniciar servidor
 
@@ -186,21 +188,33 @@ App Cliente            SSO Service                Google OAuth           MariaDB
 Inicia el proceso de autenticación con Google.
 
 **Query Parameters:**
-- `url_redireccion_app` (required): URL de redirección (codificada con encodeURIComponent)
+- `url_redireccion_app` (required): URL de redirección (puede ser codificada o sin codificar, se decodifica automáticamente)
 - `unique_id` (required): ID único para trazabilidad
+
+**Validaciones:**
+- `url_redireccion_app` debe comenzar con `http://` o `https://`
+- `url_redireccion_app` debe estar en la lista blanca de URLs permitidas
+- `unique_id` debe ser una cadena de 1-255 caracteres
+- Acepta URLs con fragmentos (ej: `http://localhost:3001/#/login-redirect`)
 
 **Ejemplo:**
 ```bash
-https://auth.greenborn.com.ar/auth/google?url_redireccion_app=https%3A%2F%2Fapp.com%2Fcallback&unique_id=req_12345
+# Con URL codificada (recomendado)
+https://auth.greenborn.com.ar/auth/google?url_redireccion_app=http%3A%2F%2Flocalhost%3A3001%2F%23%2Flogin-redirect&unique_id=req_12345
+
+# Con URL sin codificar (también soportado)
+https://auth.greenborn.com.ar/auth/google?url_redireccion_app=http://localhost:3001/#/login-redirect&unique_id=req_12345
 ```
 
 **Flujo:**
-1. Valida los parámetros y la URL en la lista blanca
-2. Guarda los datos en la sesión del servidor
-3. Redirige al usuario a Google para autenticación
-4. Google redirige a `/auth/google/callback` (interno del SSO)
-5. SSO procesa la autenticación y redirige a `/auth/success` (SUCCESS_REDIRECT_URL)
-6. `/auth/success` redirige finalmente a `url_redireccion_app` con el token temporal
+1. Decodifica automáticamente el parámetro `url_redireccion_app` si está codificado
+2. Valida que la URL comience con `http://` o `https://`
+3. Verifica que la URL esté en la lista blanca de aplicaciones permitidas
+4. Guarda los datos en la sesión del servidor
+5. Redirige al usuario a Google para autenticación
+6. Google redirige a `/auth/google/callback` (interno del SSO)
+7. SSO procesa la autenticación y redirige a `/auth/success` (SUCCESS_REDIRECT_URL)
+8. `/auth/success` redirige finalmente a `url_redireccion_app` con el token temporal
 
 ---
 
@@ -434,8 +448,22 @@ Acciones registradas:
 Agregar URL a `allowed_apps`:
 ```sql
 INSERT INTO allowed_apps (app_name, allowed_redirect_urls, is_active) VALUES
-('MiApp', '["https://mi-app.com"]', 1);
+('MiApp', '["https://mi-app.com/#/callback", "http://localhost:3001/#/callback"]', 1);
 ```
+
+**Nota:** Asegúrate de incluir la URL completa con el fragmento (`#`) si tu aplicación lo utiliza.
+
+### "El parámetro url_redireccion_app debe ser una URL válida"
+
+Este error ocurre cuando:
+1. La URL no comienza con `http://` o `https://`
+2. La URL no está en la lista blanca de aplicaciones permitidas
+
+**Soluciones:**
+- Verifica que la URL comience con el protocolo correcto
+- Asegúrate de que la URL esté registrada en la tabla `allowed_apps`
+- Las URLs pueden estar codificadas o sin codificar (se decodifican automáticamente)
+- Las URLs pueden incluir fragmentos: `http://localhost:3001/#/login-redirect`
 
 ### "Sesión de Google expirada"
 

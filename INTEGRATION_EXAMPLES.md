@@ -29,6 +29,8 @@ class SSOClient {
       unique_id: uniqueId
     });
     
+    // Nota: La URL puede estar codificada o sin codificar
+    // El servidor decodifica automáticamente si es necesario
     window.location.href = `${this.config.baseUrl}/auth/google?${params}`;
   }
 
@@ -584,12 +586,29 @@ Headers: Authorization: Bearer BEARER_TOKEN
 }
 → Acción: Forzar re-autenticación
 
+// Error: URL no válida
+{
+  "success": false,
+  "error": "INVALID_REDIRECT_URL",
+  "message": "El parámetro url_redireccion_app debe comenzar con http:// o https://"
+}
+→ Acción: Verificar formato de URL
+
 // Error: URL no autorizada
 {
   "success": false,
-  "error": "UNAUTHORIZED_REDIRECT_URL"
+  "error": "UNAUTHORIZED_REDIRECT_URL",
+  "message": "La URL de redirección no está autorizada"
 }
-→ Acción: Contactar administrador para agregar URL
+→ Acción: Contactar administrador para agregar URL a la lista blanca
+
+// Error: Codificación de URL inválida
+{
+  "success": false,
+  "error": "INVALID_REDIRECT_URL_ENCODING",
+  "message": "El parámetro url_redireccion_app no es una URL válida (error de codificación)"
+}
+→ Acción: Verificar que la URL esté correctamente codificada
 ```
 
 ## 📚 Recursos Adicionales

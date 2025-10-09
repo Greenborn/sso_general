@@ -47,6 +47,9 @@ Se ha implementado un sistema completo de **Single Sign-On (SSO)** con las sigui
 - ✅ Soporte para múltiples URLs por aplicación
 - ✅ Puede activarse/desactivarse por aplicación
 - ✅ Script helper para agregar apps: `scripts/add-allowed-app.js`
+- ✅ Acepta URLs con fragmentos (ej: `http://localhost:3001/#/login-redirect`)
+- ✅ Decodificación automática de URLs codificadas
+- ✅ Validación simple: URLs deben comenzar con `http://` o `https://`
 
 ### 6. Encriptación de Datos Sensibles
 - ✅ Tokens de Google encriptados con AES-256-CBC
@@ -88,9 +91,11 @@ Se ha implementado un sistema completo de **Single Sign-On (SSO)** con las sigui
 - Helmet.js configurado
 
 #### Validaciones
-- Validación de formato de URLs
-- Verificación de lista blanca
-- Validación de unique_id obligatorio
+- Validación de formato de URLs (debe comenzar con `http://` o `https://`)
+- Decodificación automática de URLs codificadas
+- Soporte para URLs con fragmentos (ej: `#/login-redirect`)
+- Verificación de lista blanca de URLs permitidas
+- Validación de unique_id obligatorio (1-255 caracteres)
 
 ### 10. Scripts de Utilidad
 - ✅ `scripts/generate-keys.js`: Genera claves de seguridad
