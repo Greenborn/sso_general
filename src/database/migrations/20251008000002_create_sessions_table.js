@@ -19,7 +19,6 @@ exports.up = function(knex) {
     // Índices
     table.index('bearer_token_hash');
     table.index('user_id');
-    table.index('unique_id');
     table.index('expires_at');
     table.index('revoked');
     table.index(['user_id', 'revoked', 'expires_at']);

@@ -19,7 +19,6 @@ exports.up = function(knex) {
     // Índices
     table.index('user_id');
     table.index('action');
-    table.index('unique_id');
     table.index('created_at');
     table.index(['user_id', 'action']);
     table.index(['unique_id', 'action']);
