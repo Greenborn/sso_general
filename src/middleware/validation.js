@@ -33,8 +33,20 @@ const validateOAuthParams = async (req, res, next) => {
     });
   }
 
+  // Decodificar el parámetro url_redireccion_app antes de validarlo
+  let decodedUrl;
+  try {
+    decodedUrl = decodeURIComponent(url_redireccion_app);
+  } catch (e) {
+    return res.status(400).json({
+      success: false,
+      message: 'El parámetro url_redireccion_app no es una URL válida (error de codificación)',
+      error: 'INVALID_REDIRECT_URL_ENCODING'
+    });
+  }
+
   // Validar formato de URL
-  if (!validator.isURL(url_redireccion_app, { 
+  if (!validator.isURL(decodedUrl, { 
     protocols: ['http', 'https'],
     require_protocol: true
   })) {
@@ -46,7 +58,7 @@ const validateOAuthParams = async (req, res, next) => {
   }
 
   // Verificar que la URL esté en la lista blanca
-  const isAllowed = await AllowedApp.isUrlAllowed(url_redireccion_app);
+  const isAllowed = await AllowedApp.isUrlAllowed(decodedUrl);
   
   if (!isAllowed) {
     return res.status(403).json({
@@ -57,7 +69,7 @@ const validateOAuthParams = async (req, res, next) => {
   }
 
   // Guardar en la sesión para usar después del callback
-  req.session.oauth_redirect_url = url_redireccion_app;
+  req.session.oauth_redirect_url = decodedUrl;
   req.session.oauth_unique_id = unique_id;
 
   next();
