@@ -6,6 +6,12 @@ const morgan = require('morgan');
 const passport = require('./config/passport');
 const config = require('./config/config');
 
+// Importar base de datos (inicializa conexión)
+require('./config/database');
+
+// Importar middlewares
+const { generalLimiter } = require('./middleware/rateLimiter');
+
 // Importar rutas
 const authRoutes = require('./routes/auth');
 
@@ -26,8 +32,13 @@ app.use(cors({
     }
     
     // En producción, configurar los orígenes permitidos
-    const allowedOrigins = [config.baseUrl];
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    let allowedOrigins = [];
+    if (Array.isArray(config.baseUrl)) {
+      allowedOrigins = config.baseUrl;
+    } else if (typeof config.baseUrl === 'string') {
+      allowedOrigins = config.baseUrl.split(',').map(o => o.trim());
+    }
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('No permitido por CORS'));
@@ -54,6 +65,17 @@ app.use(session(config.session));
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Rate limiting (aplicar después de las sesiones)
+if (config.server.nodeEnv !== 'development' || process.env.ENABLE_RATE_LIMIT === 'true') {
+  app.use(generalLimiter);
+}
+
+// Middleware temporal para depuración de sesión
+app.use((req, res, next) => {
+  console.log('Contenido de la sesión:', req.session);
+  next();
+});
+
 // Rutas
 app.use('/auth', authRoutes);
 
@@ -61,18 +83,34 @@ app.use('/auth', authRoutes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Servicio de autenticación OAuth con Google',
-    version: '1.0.0',
+    message: 'Servicio de autenticación SSO con Google OAuth',
+    version: '2.0.0',
     endpoints: {
-      auth: {
-        'GET /auth/google': 'Iniciar autenticación con Google',
-        'GET /auth/google/callback': 'Callback de Google OAuth',
-        'POST /auth/logout': 'Cerrar sesión',
-        'GET /auth/logout': 'Cerrar sesión (GET)',
-        'GET /auth/status': 'Verificar estado de autenticación',
-        'GET /auth/success': 'Página de éxito',
-        'GET /auth/failure': 'Página de fallo'
+      authentication: {
+        'GET /auth/google?url_redireccion_app={url}&unique_id={id}': 'Iniciar autenticación con Google',
+        'GET /auth/google/callback': 'Callback de Google OAuth (uso interno)',
+        'POST /auth/login': 'Login con token temporal (Body: { token })',
+        'GET /auth/verify': 'Verificar y extender bearer token (Header: Authorization: Bearer {token})',
+        'POST /auth/logout': 'Cerrar sesión (Header: Authorization: Bearer {token})',
+        'GET /auth/sessions': 'Listar sesiones activas (Header: Authorization: Bearer {token})',
+        'GET /auth/status': 'Verificar estado de autenticación (opcional bearer token)'
+      },
+      legacy: {
+        'GET /auth/success': 'Página informativa de éxito',
+        'GET /auth/failure': 'Página informativa de fallo'
       }
+    },
+    documentation: {
+      flow: [
+        '1. App cliente llama: GET /auth/google?url_redireccion_app={url}&unique_id={id}',
+        '2. Usuario se autentica con Google',
+        '3. Sistema redirige a: {url_redireccion_app}?token={temporal_token}&unique_id={id}',
+        '4. App cliente llama: POST /auth/login con { token: temporal_token }',
+        '5. Sistema retorna: { bearer_token, expires_at, user }',
+        '6. App usa bearer_token en header: Authorization: Bearer {token}',
+        '7. Para verificar/extender token: GET /auth/verify',
+        '8. Para cerrar sesión: POST /auth/logout'
+      ]
     }
   });
 });
@@ -111,15 +149,33 @@ app.use((error, req, res, next) => {
 const PORT = config.server.port;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor ejecutándose en puerto ${PORT}`);
+  console.log(`🚀 Servidor SSO ejecutándose en puerto ${PORT}`);
   console.log(`📝 Entorno: ${config.server.nodeEnv}`);
   console.log(`🔗 URL: ${config.baseUrl}`);
   console.log(`📚 Documentación de endpoints disponible en: ${config.baseUrl}/`);
   
   // Verificar configuración de Google OAuth
   if (!config.google.clientId || !config.google.clientSecret) {
-    console.warn('⚠️  Advertencia: Configuración de Google OAuth incompleta. Verifica las variables GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en tu archivo .env');
+    console.warn('⚠️  Advertencia: Configuración de Google OAuth incompleta');
+    console.warn('    Verifica GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en .env');
   }
+  
+  // Verificar configuración de JWT
+  if (!config.jwt.secret || config.jwt.secret === 'default-jwt-secret-key') {
+    console.warn('⚠️  Advertencia: JWT_SECRET no configurado o usando valor por defecto');
+    console.warn('    Configura JWT_SECRET en .env para producción');
+  }
+  
+  // Verificar configuración de encriptación
+  if (!config.encryption.key || config.encryption.key.length < 64) {
+    console.warn('⚠️  Advertencia: ENCRYPTION_KEY no configurado correctamente');
+    console.warn('    Configura ENCRYPTION_KEY (64 caracteres hex) en .env');
+  }
+  
+  console.log('✅ Sistema de gestión de sesiones activado');
+  console.log('✅ Base de datos MariaDB configurada');
+  console.log('✅ Sistema de tokens JWT implementado');
+  console.log('✅ Auditoría de logs habilitada');
 });
 
 module.exports = app;
