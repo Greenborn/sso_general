@@ -9,6 +9,9 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
+    "migrate:latest": "knex migrate:latest --knexfile src/config/knexfile.js",
+    "migrate:rollback": "knex migrate:rollback --knexfile src/config/knexfile.js",
+    "migrate:make": "knex migrate:make --knexfile src/config/knexfile.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -28,7 +31,14 @@
     "dotenv": "^16.3.1",
     "cors": "^2.8.5",
     "helmet": "^7.1.0",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "knex": "^3.0.0",
+    "mysql2": "^3.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "express-rate-limit": "^7.1.0",
+    "validator": "^13.11.0",
+    "uuid": "^9.0.1",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

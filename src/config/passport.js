@@ -6,10 +6,12 @@ const config = require('./config');
 passport.use(new GoogleStrategy({
   clientID: config.google.clientId,
   clientSecret: config.google.clientSecret,
-  callbackURL: config.google.callbackUrl
+  callbackURL: config.google.callbackUrl,
+  accessType: 'offline', // Para obtener refresh token
+  prompt: 'select_account' // Permitir seleccionar cuenta
 }, async (accessToken, refreshToken, profile, done) => {
   try {
-    // Aquí puedes agregar lógica para guardar o buscar el usuario en la base de datos
+    // Crear objeto de usuario temporal para la sesión
     const user = {
       id: profile.id,
       email: profile.emails[0].value,
@@ -19,7 +21,8 @@ passport.use(new GoogleStrategy({
       photo: profile.photos[0].value,
       provider: 'google',
       accessToken,
-      refreshToken
+      refreshToken,
+      profile // Guardar perfil completo
     };
     
     return done(null, user);
@@ -29,6 +32,7 @@ passport.use(new GoogleStrategy({
 }));
 
 // Serialización del usuario para la sesión
+// Solo guardamos datos mínimos en la sesión
 passport.serializeUser((user, done) => {
   done(null, user);
 });
