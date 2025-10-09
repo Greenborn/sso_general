@@ -48,19 +48,18 @@ const validateOAuthParams = async (req, res, next) => {
   // Depurar el valor decodificado de url_redireccion_app
   console.log('Valor decodificado de url_redireccion_app:', decodedUrl);
 
-  // Validar formato de URL con opciones ajustadas
-  // Depurar la validación con validator.isURL
-  const isValidUrl = validator.isURL(decodedUrl, { 
-    protocols: ['http', 'https'],
-    require_protocol: true,
-    allow_fragments: true // Permitir fragmentos en la URL
-  });
-  console.log('Resultado de validator.isURL:', isValidUrl);
+  // Eliminar el fragmento (#) de la URL antes de validarla
+  const urlWithoutFragment = decodedUrl.split('#')[0];
+  console.log('URL sin fragmento:', urlWithoutFragment);
+
+  // Validar que la URL comience con http:// o https://
+  const isValidUrl = decodedUrl.startsWith('http://') || decodedUrl.startsWith('https://');
+  console.log('Resultado de validación básica de URL:', isValidUrl);
 
   if (!isValidUrl) {
     return res.status(400).json({
       success: false,
-      message: 'El parámetro url_redireccion_app debe ser una URL válida',
+      message: 'El parámetro url_redireccion_app debe comenzar con http:// o https://',
       error: 'INVALID_REDIRECT_URL'
     });
   }
