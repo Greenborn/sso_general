@@ -193,11 +193,20 @@ router.get('/verify',
   verifyLimiter,
   async (req, res) => {
     try {
+      const uniqueId = req.headers['unique_id'];
+      if (!uniqueId || typeof uniqueId !== 'string' || uniqueId.length < 1 || uniqueId.length > 255) {
+        return res.status(400).json({
+          success: false,
+          message: 'unique_id es requerido y debe ser una cadena de 1-255 caracteres',
+          error: 'MISSING_UNIQUE_ID'
+        });
+      }
       // Verificar y extender token
       const result = await AuthService.verifyAndExtendToken(
         req.token,
         req.clientIp,
-        req.userAgent
+        req.userAgent,
+        uniqueId
       );
 
       res.json({
@@ -224,6 +233,8 @@ router.get('/verify',
         message = 'Sesión no encontrada';
       } else if (error.message === 'USER_NOT_FOUND') {
         message = 'Usuario no encontrado';
+      } else if (error.message === 'UNIQUE_ID_MISMATCH') {
+        message = 'unique_id no coincide con la sesión';
       }
 
       res.status(statusCode).json({

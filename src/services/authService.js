@@ -134,7 +134,7 @@ class AuthService {
   /**
    * Verifica y extiende un bearer token
    */
-  static async verifyAndExtendToken(bearerToken, ipAddress, userAgent) {
+  static async verifyAndExtendToken(bearerToken, ipAddress, userAgent, uniqueId) {
     try {
       // Verificar token JWT
       const decoded = verifyToken(bearerToken);
@@ -149,6 +149,11 @@ class AuthService {
 
       if (!session) {
         throw new Error('SESSION_NOT_FOUND');
+      }
+
+      // Validar unique_id
+      if (!session.unique_id || session.unique_id !== uniqueId) {
+        throw new Error('UNIQUE_ID_MISMATCH');
       }
 
       // Verificar usuario
