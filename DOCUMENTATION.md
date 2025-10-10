@@ -264,12 +264,16 @@ Autentica con token temporal y genera bearer token.
 
 ### `GET /auth/verify`
 
-Verifica bearer token y extiende duración si hay sesión Google activa. Ahora requiere también el header `unique_id` para mayor seguridad y trazabilidad.
+Verifica bearer token y extiende duración si hay sesión Google activa. Ahora requiere también el parámetro `unique_id` como query param para mayor seguridad y trazabilidad.
 
 **Headers:**
 ```
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-unique_id: req_12345
+```
+
+**Query Params:**
+```
+unique_id=req_12345
 ```
 
 **Response (éxito):**

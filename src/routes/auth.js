@@ -193,11 +193,11 @@ router.get('/verify',
   verifyLimiter,
   async (req, res) => {
     try {
-      const uniqueId = req.headers['unique_id'];
+      const uniqueId = req.query.unique_id;
       if (!uniqueId || typeof uniqueId !== 'string' || uniqueId.length < 1 || uniqueId.length > 255) {
         return res.status(400).json({
           success: false,
-          message: 'unique_id es requerido y debe ser una cadena de 1-255 caracteres',
+          message: 'unique_id es requerido como query param y debe ser una cadena de 1-255 caracteres',
           error: 'MISSING_UNIQUE_ID'
         });
       }
