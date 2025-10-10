@@ -257,6 +257,24 @@ router.post('/logout',
   verifyBearerToken,
   async (req, res) => {
     try {
+      const uniqueId = req.query.unique_id;
+      if (!uniqueId || typeof uniqueId !== 'string' || uniqueId.length < 1 || uniqueId.length > 255) {
+        return res.status(400).json({
+          success: false,
+          message: 'unique_id es requerido como query param y debe ser una cadena de 1-255 caracteres',
+          error: 'MISSING_UNIQUE_ID'
+        });
+      }
+
+      // Verificar que el unique_id coincida con la sesión activa
+      if (!req.user || req.user.last_unique_id !== uniqueId) {
+        return res.status(401).json({
+          success: false,
+          message: 'unique_id no coincide con la sesión',
+          error: 'UNIQUE_ID_MISMATCH'
+        });
+      }
+
       await AuthService.logout(
         req.token,
         req.clientIp,

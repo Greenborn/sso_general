@@ -311,11 +311,17 @@ unique_id=req_12345
 
 ### `POST /auth/logout`
 
+
 Cierra sesión y revoca tokens de Google.
 
 **Headers:**
 ```
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Query Params:**
+```
+unique_id=req_12345
 ```
 
 **Response:**
