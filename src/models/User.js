@@ -70,6 +70,7 @@ class User {
       last_unique_id: userData.uniqueId,
       google_access_token: userData.accessToken ? encrypt(userData.accessToken) : null,
       google_refresh_token: userData.refreshToken ? encrypt(userData.refreshToken) : null,
+        profile_img_int: userData.profileImgInt || null,
       is_active: true,
       last_login_at: db.fn.now()
     };
@@ -91,6 +92,9 @@ class User {
       last_login_at: db.fn.now(),
       updated_at: db.fn.now()
     };
+      if (userData.profileImgInt) {
+        data.profile_img_int = userData.profileImgInt;
+      }
 
     if (userData.accessToken) {
       data.google_access_token = encrypt(userData.accessToken);

@@ -35,6 +35,31 @@ class AuthService {
         refreshToken: refreshToken,
         uniqueId: uniqueId
       };
+      
+        // Descargar y guardar la foto del usuario en user_data
+        const fs = require('fs');
+        const path = require('path');
+        const axios = require('axios');
+        let profileImgInt = null;
+        if (profile.photos && profile.photos[0] && profile.photos[0].value) {
+          try {
+            const imgUrl = profile.photos[0].value;
+            const ext = path.extname(imgUrl).split('?')[0] || '.jpg';
+            const fileName = `user_${profile.id}_${Date.now()}${ext}`;
+            const dirPath = path.join(__dirname, '../../user_data');
+            if (!fs.existsSync(dirPath)) {
+              fs.mkdirSync(dirPath, { recursive: true });
+            }
+            const filePath = path.join(dirPath, fileName);
+            const response = await axios.get(imgUrl, { responseType: 'arraybuffer' });
+            fs.writeFileSync(filePath, response.data);
+            profileImgInt = fileName;
+          } catch (err) {
+            console.error('Error guardando imagen de usuario:', err);
+          }
+        }
+      
+        userData.profileImgInt = profileImgInt;
 
       if (!user) {
         // Crear nuevo usuario
@@ -110,6 +135,19 @@ class AuthService {
         { sessionId: session.id }
       );
 
+      // Obtener base64 de la imagen interna si existe
+      let profileImgBase64 = null;
+      if (user.profile_img_int) {
+        const fs = require('fs');
+        const path = require('path');
+        const imgPath = path.join(__dirname, '../../user_data', user.profile_img_int);
+        try {
+          const imgData = fs.readFileSync(imgPath);
+          profileImgBase64 = imgData.toString('base64');
+        } catch (err) {
+          profileImgBase64 = null;
+        }
+      }
       return {
         bearerToken,
         expiresAt,
@@ -117,7 +155,8 @@ class AuthService {
           id: user.id,
           email: user.email,
           name: user.name,
-          photo: user.photo_url
+          photo: user.photo_url,
+          profile_img_base64: profileImgBase64
         }
       };
     } catch (error) {
@@ -186,6 +225,19 @@ class AuthService {
         newExpiresAt: newExpiresAt
       });
 
+      // Obtener base64 de la imagen interna si existe
+      let profileImgBase64 = null;
+      if (user.profile_img_int) {
+        const fs = require('fs');
+        const path = require('path');
+        const imgPath = path.join(__dirname, '../../user_data', user.profile_img_int);
+        try {
+          const imgData = fs.readFileSync(imgPath);
+          profileImgBase64 = imgData.toString('base64');
+        } catch (err) {
+          profileImgBase64 = null;
+        }
+      }
       return {
         valid: true,
         extended: true,
@@ -194,7 +246,8 @@ class AuthService {
           id: user.id,
           email: user.email,
           name: user.name,
-          photo: user.photo_url
+          photo: user.photo_url,
+          profile_img_base64: profileImgBase64
         }
       };
     } catch (error) {
