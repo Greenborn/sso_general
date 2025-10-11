@@ -264,7 +264,7 @@ Autentica con token temporal y genera bearer token.
 
 ### `GET /auth/verify`
 
-Verifica bearer token y extiende duración si hay sesión Google activa. Ahora requiere también el parámetro `unique_id` como query param para mayor seguridad y trazabilidad.
+Verifica bearer token y extiende duración si hay sesión Google activa. Ahora requiere también el parámetro `unique_id` como query param para mayor seguridad y trazabilidad. Si se especifica el parámetro `full_info=true`, la respuesta incluirá la imagen de perfil en base64 (`profile_img_base64`).
 
 **Headers:**
 ```
@@ -274,6 +274,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 **Query Params:**
 ```
 unique_id=req_12345
+full_info=true   # Opcional, retorna imagen de perfil en base64 si está presente
 ```
 
 **Response (éxito):**
@@ -284,7 +285,13 @@ unique_id=req_12345
     "valid": true,
     "extended": true,
     "expires_at": "2025-10-09T12:00:00.000Z",
-    "user": { ... }
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "name": "John Doe",
+      "photo": "https://...",
+      "profile_img_base64": "iVBORw0KGgoAAAANS..." // Solo si full_info=true
+    }
   }
 }
 ```

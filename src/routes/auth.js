@@ -209,6 +209,14 @@ router.get('/verify',
         uniqueId
       );
 
+      // Si se especifica full_info=true, incluir la imagen base64
+      let userData = { ...result.user };
+      if (!('full_info' in req.query) || req.query.full_info !== 'true') {
+        // Eliminar el campo profile_img_base64 si no se solicita full_info
+        if ('profile_img_base64' in userData) {
+          delete userData.profile_img_base64;
+        }
+      }
       res.json({
         success: true,
         message: 'Token válido',
@@ -216,7 +224,7 @@ router.get('/verify',
           valid: result.valid,
           extended: result.extended,
           expires_at: result.expiresAt,
-          user: result.user
+          user: userData
         }
       });
     } catch (error) {
