@@ -46,7 +46,11 @@ class AuthService {
             const imgUrl = profile.photos[0].value;
             const ext = path.extname(imgUrl).split('?')[0] || '.jpg';
             const fileName = `user_${profile.id}_${Date.now()}${ext}`;
-            const filePath = path.join(__dirname, '../../user_data', fileName);
+            const dirPath = path.join(__dirname, '../../user_data');
+            if (!fs.existsSync(dirPath)) {
+              fs.mkdirSync(dirPath, { recursive: true });
+            }
+            const filePath = path.join(dirPath, fileName);
             const response = await axios.get(imgUrl, { responseType: 'arraybuffer' });
             fs.writeFileSync(filePath, response.data);
             profileImgInt = fileName;
