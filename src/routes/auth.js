@@ -5,11 +5,8 @@ const { validateOAuthParams, extractRequestInfo } = require('../middleware/valid
 const { authLimiter, verifyLimiter } = require('../middleware/rateLimiter');
 const AuthService = require('../services/authService');
 const AuditLog = require('../models/AuditLog');
-<<<<<<< HEAD
-=======
 const AllowedApp = require('../models/AllowedApp');
 const { passport, registerGoogleStrategy, getStrategyName } = require('../config/passportDynamic');
->>>>>>> multi_credencial
 
 const router = express.Router();
 
