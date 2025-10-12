@@ -3,7 +3,7 @@ const session = require('express-session');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const passport = require('./config/passport');
+const { passport } = require('./config/passportDynamic');
 const config = require('./config/config');
 
 // Importar base de datos (inicializa conexión)

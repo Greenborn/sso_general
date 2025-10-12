@@ -21,7 +21,45 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-module.exports = {
+// --- OAuth Credentials Loader ---
+const fs = require('fs');
+const path = require('path');
+
+// Ruta al archivo de credenciales OAuth
+const OAUTH_CREDENTIALS_PATH = process.env.OAUTH_CREDENTIALS_PATH || './oauth_credentials.json';
+
+// Cargar credenciales OAuth
+let oauthCredentials = {};
+try {
+  const credentialsPath = path.resolve(OAUTH_CREDENTIALS_PATH);
+  if (fs.existsSync(credentialsPath)) {
+    oauthCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+    console.log('✅ Credenciales OAuth cargadas correctamente');
+  } else {
+    console.warn('⚠️ Archivo oauth_credentials.json no encontrado');
+  }
+} catch (err) {
+  console.error('❌ Error cargando oauth_credentials.json:', err);
+}
+
+/**
+ * Obtiene las credenciales OAuth para una app y proveedor
+ * @param {string} idApp - ID de la app (ej: busquedas_pet_app)
+ * @param {string} provider - Proveedor (ej: google, meta)
+ * @returns {object|null} Credenciales o null si no existen
+ */
+function getOAuthCredentials(idApp, provider) {
+  if (
+    oauthCredentials[idApp] &&
+    oauthCredentials[idApp][provider]
+  ) {
+    return oauthCredentials[idApp][provider];
+  }
+  return null;
+}
+
+// Configuración principal
+const config = {
   server: {
     port: process.env.PORT || 3000,
     nodeEnv: process.env.NODE_ENV || 'development'
@@ -80,3 +118,6 @@ module.exports = {
   
   baseUrl: process.env.BASE_URL || 'http://localhost:3000'
 };
+
+module.exports = config;
+module.exports.getOAuthCredentials = getOAuthCredentials;

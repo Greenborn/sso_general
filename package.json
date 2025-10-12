@@ -1,6 +1,6 @@
 {
   "name": "sso-google-service",
-  "version": "1.5.2",
+  "version": "1.6.2",
   "description": "Servicio de autenticación OAuth con Google usando Express",
   "main": "src/app.js",
   "engines": {

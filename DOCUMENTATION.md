@@ -52,9 +52,34 @@ DB_NAME=sso_general
 DB_USER=root
 DB_PASSWORD=tu_password
 
-# Google OAuth
-GOOGLE_CLIENT_ID=tu_client_id
-GOOGLE_CLIENT_SECRET=tu_client_secret
+## Configuración de credenciales OAuth
+
+Las credenciales de cada aplicación y proveedor se configuran en el archivo `oauth_credentials.json` (excluido del repositorio por seguridad).
+
+Referencia en `.env`:
+```bash
+OAUTH_CREDENTIALS_PATH=./oauth_credentials.json
+```
+
+Ejemplo de `oauth_credentials.json`:
+```json
+{
+  "busquedas_pet_app": {
+    "google": {
+      "client_id": "<client_id>",
+      "client_secret": "<client_secret>"
+    }
+  }
+}
+```
+
+> **Importante:** No compartas ni subas este archivo al repositorio. Está incluido en `.gitignore` por defecto.
+
+La aplicación selecciona las credenciales según el `id_app` (por ejemplo, el valor de `busquedas_pet_app` en la tabla `allowed_apps`) y el proveedor (`google`, `meta`, etc).
+
+# Google OAuth (legacy, solo si se requiere una credencial global)
+# GOOGLE_CLIENT_ID=tu_client_id
+# GOOGLE_CLIENT_SECRET=tu_client_secret
 GOOGLE_CALLBACK_URL=https://auth.greenborn.com.ar/auth/google/callback
 
 # Secrets (generar valores únicos)
@@ -84,11 +109,39 @@ npm run migrate:latest
 Insertar en la tabla `allowed_apps`:
 
 ```sql
+<<<<<<< HEAD
 INSERT INTO allowed_apps (app_name, allowed_redirect_urls, is_active) VALUES
 ('MisMascotas', '["https://buscar.mismascotas.top/#/login-redirect", "http://localhost:3001/#/login-redirect"]', 1);
 ```
 
 **Nota:** Las URLs pueden incluir fragmentos (`#`) y rutas completas. El sistema decodifica automáticamente URLs codificadas y valida que comiencen con `http://` o `https://`.
+=======
+INSERT INTO allowed_apps (app_name, app_id, allowed_redirect_urls, is_active) VALUES
+('MisMascotas', 'busquedas_pet_app', '["https://buscar.mismascotas.top/#/login-redirect", "http://localhost:3001/#/login-redirect"]', 1);
+```
+
+**Importante:** 
+- Cada app debe tener un `app_id` único que se usa para cargar las credenciales OAuth desde `oauth_credentials.json`
+- Las URLs pueden incluir fragmentos (`#`) y rutas completas
+- El sistema decodifica automáticamente URLs codificadas y valida que comiencen con `http://` o `https://`
+
+**Configurar Credenciales OAuth:**
+
+Edita el archivo `oauth_credentials.json` (referenciado en `.env` con `OAUTH_CREDENTIALS_PATH`):
+
+```json
+{
+  "busquedas_pet_app": {
+    "google": {
+      "client_id": "tu_client_id.apps.googleusercontent.com",
+      "client_secret": "GOCSPX-tu_client_secret"
+    }
+  }
+}
+```
+
+Este archivo permite configurar múltiples credenciales OAuth para diferentes apps y proveedores. Ver [OAUTH_MULTIPLE_CREDENTIALS.md](OAUTH_MULTIPLE_CREDENTIALS.md) para más detalles.
+>>>>>>> multi_credencial
 
 ### 7. Iniciar servidor
 

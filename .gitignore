@@ -1,3 +1,5 @@
+# Credenciales OAuth
+oauth_credentials.json
 # Dependencias de Node.js
 node_modules/
 npm-debug.log*
