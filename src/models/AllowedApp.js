@@ -32,6 +32,36 @@ class AllowedApp {
   }
 
   /**
+   * Obtiene el app_id de la aplicación que permite una URL
+   */
+  static async getAppIdByUrl(url) {
+    try {
+      const apps = await db('allowed_apps')
+        .where({ is_active: true })
+        .select('app_id', 'allowed_redirect_urls');
+      
+      for (const app of apps) {
+        const urls = JSON.parse(app.allowed_redirect_urls);
+        if (urls.includes(url)) {
+          return app.app_id;
+        }
+        
+        // Verificar también con wildcards
+        for (const allowedUrl of urls) {
+          if (this.matchesPattern(url, allowedUrl)) {
+            return app.app_id;
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo app_id por URL:', error);
+      return null;
+    }
+  }
+
+  /**
    * Verifica si una URL coincide con un patrón (soporta wildcards básicos)
    */
   static matchesPattern(url, pattern) {

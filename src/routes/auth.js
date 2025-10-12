@@ -1,11 +1,15 @@
 const express = require('express');
-const passport = require('../config/passport');
 const config = require('../config/config');
 const { isAuthenticated, verifyBearerToken, optionalBearerToken } = require('../middleware/auth');
 const { validateOAuthParams, extractRequestInfo } = require('../middleware/validation');
 const { authLimiter, verifyLimiter } = require('../middleware/rateLimiter');
 const AuthService = require('../services/authService');
 const AuditLog = require('../models/AuditLog');
+<<<<<<< HEAD
+=======
+const AllowedApp = require('../models/AllowedApp');
+const { passport, registerGoogleStrategy, getStrategyName } = require('../config/passportDynamic');
+>>>>>>> multi_credencial
 
 const router = express.Router();
 
@@ -18,19 +22,49 @@ router.get('/google',
   extractRequestInfo,
   validateOAuthParams,
   authLimiter,
-  (req, res, next) => {
-    // Codificar los datos en el state parameter para preservarlos durante OAuth
-    const state = Buffer.from(JSON.stringify({
-      url_redireccion_app: req.session.oauth_redirect_url,
-      unique_id: req.session.oauth_unique_id
-    })).toString('base64');
+  async (req, res, next) => {
+    try {
+      // Obtener el app_id desde la URL de redirección
+      const appId = await AllowedApp.getAppIdByUrl(req.session.oauth_redirect_url);
+      
+      if (!appId) {
+        console.error('No se encontró app_id para la URL:', req.session.oauth_redirect_url);
+        return res.redirect(`${config.redirect.failure}?error=APP_ID_NOT_FOUND`);
+      }
 
-    passport.authenticate('google', {
-      scope: ['profile', 'email'],
-      accessType: 'offline',
-      prompt: 'select_account',
-      state: state
-    })(req, res, next);
+      // Obtener credenciales OAuth para esta app
+      const credentials = config.getOAuthCredentials(appId, 'google');
+      
+      if (!credentials || !credentials.client_id || !credentials.client_secret) {
+        console.error(`No hay credenciales OAuth configuradas para app_id: ${appId}`);
+        return res.redirect(`${config.redirect.failure}?error=OAUTH_CREDENTIALS_NOT_FOUND`);
+      }
+
+      // Registrar la estrategia de Google para esta app
+      const strategyName = registerGoogleStrategy(appId, credentials);
+
+      // Guardar el strategyName en la sesión para usarlo en el callback
+      req.session.oauth_strategy_name = strategyName;
+      req.session.oauth_app_id = appId;
+
+      // Codificar los datos en el state parameter para preservarlos durante OAuth
+      const state = Buffer.from(JSON.stringify({
+        url_redireccion_app: req.session.oauth_redirect_url,
+        unique_id: req.session.oauth_unique_id,
+        app_id: appId,
+        strategy_name: strategyName
+      })).toString('base64');
+
+      passport.authenticate(strategyName, {
+        scope: ['profile', 'email'],
+        accessType: 'offline',
+        prompt: 'select_account',
+        state: state
+      })(req, res, next);
+    } catch (error) {
+      console.error('Error en /auth/google:', error);
+      return res.redirect(`${config.redirect.failure}?error=OAUTH_INIT_ERROR`);
+    }
   }
 );
 
@@ -41,10 +75,41 @@ router.get('/google',
  */
 router.get('/google/callback',
   extractRequestInfo,
-  passport.authenticate('google', { 
-    failureRedirect: config.redirect.failure,
-    session: true
-  }),
+  async (req, res, next) => {
+    try {
+      // Recuperar datos del state parameter
+      let strategyName, appId;
+      
+      if (req.query.state) {
+        try {
+          const stateData = JSON.parse(Buffer.from(req.query.state, 'base64').toString());
+          strategyName = stateData.strategy_name;
+          appId = stateData.app_id;
+        } catch (e) {
+          console.error('Error decodificando state parameter:', e);
+        }
+      }
+
+      // Fallback a la sesión si no hay datos en state
+      if (!strategyName) {
+        strategyName = req.session.oauth_strategy_name || 'google';
+      }
+      if (!appId) {
+        appId = req.session.oauth_app_id;
+      }
+
+      console.log(`Usando estrategia: ${strategyName} para app_id: ${appId}`);
+
+      // Autenticar con la estrategia correcta
+      passport.authenticate(strategyName, { 
+        failureRedirect: config.redirect.failure,
+        session: true
+      })(req, res, next);
+    } catch (error) {
+      console.error('Error en /auth/google/callback:', error);
+      return res.redirect(`${config.redirect.failure}?error=OAUTH_CALLBACK_ERROR`);
+    }
+  },
   async (req, res) => {
     try {
       console.log('Query params en callback:', req.query);
