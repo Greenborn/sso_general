@@ -1,35 +1,119 @@
-# Servicio de Autenticación OAuth con Google
+# 🔐 SSO General - Servicio de Autenticación OAuth
 
-Servicio Node.js con Express para manejar autenticación OAuth de Google.
+Servicio Node.js con Express para manejar autenticación OAuth con múltiples proveedores (Google, Facebook, etc.) y soporte para múltiples aplicaciones con credenciales independientes.
 
-## Requisitos
+## ✨ Características Principales
+
+- ✅ **Múltiples Aplicaciones**: Cada app puede tener sus propias credenciales OAuth
+- ✅ **Múltiples Proveedores**: Soporte para Google, Facebook/Meta (y más en el futuro)
+- ✅ **Credenciales Dinámicas**: Configuración centralizada en archivo JSON
+- ✅ **Sistema de Tokens**: Tokens temporales y bearer tokens con JWT
+- ✅ **Seguridad**: Credenciales protegidas, rate limiting, auditoría
+- ✅ **Base de Datos**: Gestión de usuarios y sesiones en MariaDB
+- ✅ **Escalable**: Fácil agregar nuevas apps sin modificar código
+
+## 📚 Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| **[DOCUMENTATION.md](DOCUMENTATION.md)** | 📖 Documentación completa del servicio SSO |
+| **[OAUTH_QUICKSTART.md](OAUTH_QUICKSTART.md)** | 🚀 Guía rápida para configurar múltiples credenciales |
+| **[OAUTH_MULTIPLE_CREDENTIALS.md](OAUTH_MULTIPLE_CREDENTIALS.md)** | 🔑 Documentación detallada del sistema de credenciales |
+| **[ROADMAP_FACEBOOK.md](ROADMAP_FACEBOOK.md)** | 📱 Plan para implementar Facebook/Meta login |
+| **[COMPLETED_OAUTH_IMPLEMENTATION.md](COMPLETED_OAUTH_IMPLEMENTATION.md)** | ✅ Resumen de implementación completada |
+| **[IMPLEMENTATION_OAUTH_MULTI.md](IMPLEMENTATION_OAUTH_MULTI.md)** | 🔧 Detalles técnicos de la implementación |
+
+## 🚀 Inicio Rápido
+
+### Requisitos
 
 - Node.js >= 22.0.0
+- MariaDB >= 10.6
 - npm o yarn
 
-## Instalación
+### Instalación
 
-1. Clonar el repositorio:
+1. **Clonar el repositorio:**
 ```bash
-git clone <repository-url>
+git clone https://github.com/Greenborn/sso_general.git
 cd sso_general
 ```
 
-2. Instalar dependencias:
+2. **Instalar dependencias:**
 ```bash
 npm install
 ```
 
-3. Configurar variables de entorno:
+3. **Configurar variables de entorno:**
 ```bash
 cp .env.example .env
 ```
 
-4. Editar el archivo `.env` con tus credenciales de Google OAuth:
-```env
-GOOGLE_CLIENT_ID=tu_google_client_id
-GOOGLE_CLIENT_SECRET=tu_google_client_secret
-SESSION_SECRET=tu_clave_secreta_super_segura
+Editar `.env` con tus valores:
+```bash
+# Base de datos
+DB_HOST=localhost
+DB_NAME=sso_general
+DB_USER=sso_general
+DB_PASSWORD=tu_password
+
+# Ruta al archivo de credenciales OAuth
+OAUTH_CREDENTIALS_PATH=./oauth_credentials.json
+
+# Google OAuth (legacy/fallback)
+GOOGLE_CLIENT_ID=tu_client_id
+GOOGLE_CLIENT_SECRET=tu_client_secret
+GOOGLE_CALLBACK_URL=https://auth.greenborn.com.ar/auth/google/callback
+
+# Secrets
+SESSION_SECRET=$(openssl rand -hex 32)
+JWT_SECRET=$(openssl rand -hex 32)
+ENCRYPTION_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+```
+
+4. **Configurar credenciales OAuth:**
+
+Crear `oauth_credentials.json`:
+```json
+{
+  "mi_app": {
+    "google": {
+      "client_id": "xxx.apps.googleusercontent.com",
+      "client_secret": "GOCSPX-xxx"
+    }
+  }
+}
+```
+
+5. **Crear base de datos:**
+```bash
+mysql -u root -p
+CREATE DATABASE sso_general CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+6. **Ejecutar migraciones:**
+```bash
+npm run migrate:latest
+```
+
+7. **Insertar aplicación permitida:**
+```sql
+INSERT INTO allowed_apps (app_name, app_id, allowed_redirect_urls, is_active) 
+VALUES (
+  'Mi App',
+  'mi_app',
+  '["https://mi-app.com/#/login"]',
+  1
+);
+```
+
+8. **Iniciar servidor:**
+```bash
+# Desarrollo
+npm run dev
+
+# Producción
+npm start
 ```
 
 ## Configuración de Google OAuth
@@ -56,6 +140,37 @@ npm start
 ```
 
 El servidor estará disponible en `http://localhost:3000`
+
+## Ejecución con PM2
+
+Para ejecutar el servicio en producción usando [pm2](https://pm2.keymetrics.io/):
+
+1. Instala pm2 globalmente si no lo tienes:
+  ```bash
+  npm install -g pm2
+  ```
+
+2. Inicia el servicio:
+  ```bash
+  pm2 start src/app.js --name sso-google-auth
+  ```
+
+3. Guarda el proceso para reinicio automático:
+  ```bash
+  pm2 save
+  ```
+
+4. (Opcional) Para iniciar pm2 al arrancar el sistema:
+  ```bash
+  pm2 startup
+  ```
+  Sigue las instrucciones que te muestra el comando.
+
+5. Monitorea el servicio:
+  ```bash
+  pm2 status
+  pm2 logs sso-google-auth
+  ```
 
 ## Endpoints Disponibles
 
