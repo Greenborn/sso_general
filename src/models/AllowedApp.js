@@ -36,24 +36,34 @@ class AllowedApp {
    */
   static async getAppIdByUrl(url) {
     try {
+      console.log('=== DEBUG getAppIdByUrl ===');
+      console.log('URL buscada:', url);
+      
       const apps = await db('allowed_apps')
         .where({ is_active: true })
         .select('app_id', 'allowed_redirect_urls');
       
+      console.log('Apps activas encontradas:', apps.length);
+      
       for (const app of apps) {
         const urls = JSON.parse(app.allowed_redirect_urls);
+        console.log(`Checking app ${app.app_id} with URLs:`, urls);
+        
         if (urls.includes(url)) {
+          console.log(`✓ Coincidencia exacta encontrada en app: ${app.app_id}`);
           return app.app_id;
         }
         
         // Verificar también con wildcards
         for (const allowedUrl of urls) {
           if (this.matchesPattern(url, allowedUrl)) {
+            console.log(`✓ Coincidencia por patrón encontrada en app: ${app.app_id}`);
             return app.app_id;
           }
         }
       }
       
+      console.log('✗ No se encontró app para la URL:', url);
       return null;
     } catch (error) {
       console.error('Error obteniendo app_id por URL:', error);
