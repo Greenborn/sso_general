@@ -141,7 +141,8 @@ router.get('/google/callback',
         req.user.profile,
         req.user.accessToken,
         req.user.refreshToken,
-        uniqueId
+        uniqueId,
+        redirectUrl
       );
 
       // Log de auditoría

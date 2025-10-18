@@ -19,7 +19,7 @@ class AuthService {
    * Procesa el callback de Google OAuth
    * Crea o actualiza usuario y genera token temporal
    */
-  static async handleGoogleCallback(profile, accessToken, refreshToken, uniqueId) {
+  static async handleGoogleCallback(profile, accessToken, refreshToken, uniqueId, redirectUrl) {
     try {
       const email = profile.emails[0].value;
       let user = await User.findByEmail(email);
@@ -69,11 +69,12 @@ class AuthService {
         user = await User.update(user.id, userData);
       }
 
-      // Generar token temporal
+      // Generar token temporal incluyendo la URL de redirección
       const temporalToken = generateTemporalToken({
         userId: user.id,
         email: user.email,
         uniqueId: uniqueId,
+        redirectUrl: redirectUrl,
         type: 'temporal'
       });
 
@@ -149,9 +150,13 @@ class AuthService {
         }
       }
 
-      // Obtener app_id desde uniqueId en la sesión
+      // Obtener app_id desde la URL de redirección en el token
       const AllowedApp = require('../models/AllowedApp');
-      const appId = await AllowedApp.getAppIdByUrl(decoded.uniqueId);
+      console.log('=== DEBUG getAppId ===');
+      console.log('decoded.redirectUrl:', decoded.redirectUrl);
+      console.log('decoded.uniqueId:', decoded.uniqueId);
+      const appId = await AllowedApp.getAppIdByUrl(decoded.redirectUrl || decoded.uniqueId);
+      console.log('appId obtenido:', appId);
       
       // Construir datos del usuario con restricciones de privacidad
       const userData = await this.buildUserData(user, profileImgBase64, appId);
@@ -311,8 +316,12 @@ class AuthService {
    */
   static async buildUserData(user, profileImgBase64, appId) {
     try {
+      console.log('=== DEBUG buildUserData ===');
+      console.log('appId:', appId);
+      
       // Si no hay appId, devolver todos los datos
       if (!appId) {
+        console.log('No appId, devolviendo todos los datos');
         return {
           id: user.id,
           email: user.email,
@@ -325,14 +334,19 @@ class AuthService {
       // Obtener la app permitida para obtener configuración de privacidad
       const AllowedApp = require('../models/AllowedApp');
       const app = await AllowedApp.findById(appId);
+      
+      console.log('App encontrada:', app);
+      console.log('Privacy setting:', app?.privacy);
 
       // Si privacy = "id_only", solo devolver el id
       if (app && app.privacy === 'id_only') {
+        console.log('Aplicando privacy id_only');
         return {
           id: user.id
         };
       }
 
+      console.log('Devolviendo todos los datos (default)');
       // Por defecto, devolver todos los datos
       return {
         id: user.id,
