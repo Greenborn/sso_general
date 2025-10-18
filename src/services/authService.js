@@ -148,16 +148,18 @@ class AuthService {
           profileImgBase64 = null;
         }
       }
+
+      // Obtener app_id desde uniqueId en la sesión
+      const AllowedApp = require('../models/AllowedApp');
+      const appId = await AllowedApp.getAppIdByUrl(decoded.uniqueId);
+      
+      // Construir datos del usuario con restricciones de privacidad
+      const userData = await this.buildUserData(user, profileImgBase64, appId);
+
       return {
         bearerToken,
         expiresAt,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          photo: user.photo_url,
-          profile_img_base64: profileImgBase64
-        }
+        user: userData
       };
     } catch (error) {
       // Log de error
@@ -238,17 +240,19 @@ class AuthService {
           profileImgBase64 = null;
         }
       }
+
+      // Obtener app_id de la sesión
+      const AllowedApp = require('../models/AllowedApp');
+      const appId = await AllowedApp.getAppIdByUrl(session.unique_id);
+
+      // Construir datos del usuario con restricciones de privacidad
+      const userData = await this.buildUserData(user, profileImgBase64, appId);
+
       return {
         valid: true,
         extended: true,
         expiresAt: newExpiresAt,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          photo: user.photo_url,
-          profile_img_base64: profileImgBase64
-        }
+        user: userData
       };
     } catch (error) {
       // Log de error
@@ -299,6 +303,51 @@ class AuthService {
    */
   static async getActiveSessions(userId) {
     return await Session.findActiveByUserId(userId);
+  }
+
+  /**
+   * Construye los datos del usuario considerando restricciones de privacidad
+   * Si privacy = "id_only", solo devuelve el id del usuario
+   */
+  static async buildUserData(user, profileImgBase64, appId) {
+    try {
+      // Si no hay appId, devolver todos los datos
+      if (!appId) {
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          photo: user.photo_url,
+          profile_img_base64: profileImgBase64
+        };
+      }
+
+      // Obtener la app permitida para obtener configuración de privacidad
+      const AllowedApp = require('../models/AllowedApp');
+      const app = await AllowedApp.findById(appId);
+
+      // Si privacy = "id_only", solo devolver el id
+      if (app && app.privacy === 'id_only') {
+        return {
+          id: user.id
+        };
+      }
+
+      // Por defecto, devolver todos los datos
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        photo: user.photo_url,
+        profile_img_base64: profileImgBase64
+      };
+    } catch (error) {
+      console.error('Error construyendo userData:', error);
+      // En caso de error, devolver solo el id por seguridad
+      return {
+        id: user.id
+      };
+    }
   }
 }
 

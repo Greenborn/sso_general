@@ -109,13 +109,6 @@ npm run migrate:latest
 Insertar en la tabla `allowed_apps`:
 
 ```sql
-<<<<<<< HEAD
-INSERT INTO allowed_apps (app_name, allowed_redirect_urls, is_active) VALUES
-('MisMascotas', '["https://buscar.mismascotas.top/#/login-redirect", "http://localhost:3001/#/login-redirect"]', 1);
-```
-
-**Nota:** Las URLs pueden incluir fragmentos (`#`) y rutas completas. El sistema decodifica automáticamente URLs codificadas y valida que comiencen con `http://` o `https://`.
-=======
 INSERT INTO allowed_apps (app_name, app_id, allowed_redirect_urls, is_active) VALUES
 ('MisMascotas', 'busquedas_pet_app', '["https://buscar.mismascotas.top/#/login-redirect", "http://localhost:3001/#/login-redirect"]', 1);
 ```
@@ -141,7 +134,6 @@ Edita el archivo `oauth_credentials.json` (referenciado en `.env` con `OAUTH_CRE
 ```
 
 Este archivo permite configurar múltiples credenciales OAuth para diferentes apps y proveedores. Ver [OAUTH_MULTIPLE_CREDENTIALS.md](OAUTH_MULTIPLE_CREDENTIALS.md) para más detalles.
->>>>>>> multi_credencial
 
 ### 7. Iniciar servidor
 

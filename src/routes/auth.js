@@ -279,6 +279,7 @@ router.get('/verify',
           delete userData.profile_img_base64;
         }
       }
+      
       res.json({
         success: true,
         message: 'Token válido',
