@@ -333,7 +333,7 @@ class AuthService {
 
       // Obtener la app permitida para obtener configuración de privacidad
       const AllowedApp = require('../models/AllowedApp');
-      const app = await AllowedApp.findById(appId);
+      const app = await AllowedApp.findByAppId(appId);
       
       console.log('App encontrada:', app);
       console.log('Privacy setting:', app?.privacy);

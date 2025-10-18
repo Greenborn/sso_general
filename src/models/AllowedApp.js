@@ -143,6 +143,21 @@ class AllowedApp {
   }
 
   /**
+   * Busca una app por app_id (string)
+   */
+  static async findByAppId(appId) {
+    const app = await db('allowed_apps')
+      .where({ app_id: appId })
+      .first();
+    
+    if (app && app.allowed_redirect_urls) {
+      app.allowed_redirect_urls = JSON.parse(app.allowed_redirect_urls);
+    }
+    
+    return app;
+  }
+
+  /**
    * Actualiza las URLs permitidas de una app
    */
   static async updateUrls(id, urls) {
