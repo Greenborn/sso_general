@@ -141,7 +141,8 @@ router.get('/google/callback',
         req.user.profile,
         req.user.accessToken,
         req.user.refreshToken,
-        uniqueId
+        uniqueId,
+        redirectUrl
       );
 
       // Log de auditoría
@@ -279,6 +280,7 @@ router.get('/verify',
           delete userData.profile_img_base64;
         }
       }
+      
       res.json({
         success: true,
         message: 'Token válido',
