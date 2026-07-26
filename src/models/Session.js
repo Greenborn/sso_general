@@ -40,6 +40,16 @@ class Session {
   }
 
   /**
+   * Busca una sesión por hash sin filtrar por expiración (para renovación)
+   */
+  static async findByTokenHashAll(tokenHash) {
+    return await db('sessions')
+      .where({ bearer_token_hash: tokenHash })
+      .where({ revoked: false })
+      .first();
+  }
+
+  /**
    * Busca todas las sesiones activas de un usuario
    */
   static async findActiveByUserId(userId) {

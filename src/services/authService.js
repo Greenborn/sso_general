@@ -6,6 +6,7 @@ const {
   generateTemporalToken, 
   generateBearerToken, 
   verifyToken,
+  decodeToken,
   hashToken,
   getTimeUntilExpiration 
 } = require('../utils/tokenGenerator');
@@ -264,6 +265,120 @@ class AuthService {
         });
       }
       
+      throw error;
+    }
+  }
+
+  /**
+   * Renueva un bearer token cuyo JWT haya expirado.
+   * Decodifica el token sin verificar expiración, valida la sesión en BD,
+   * revoca la sesión anterior y emite una nueva.
+   */
+  static async renewToken(bearerToken, ipAddress, userAgent, uniqueId) {
+    try {
+      // Decodificar sin verificar expiración
+      const decoded = decodeToken(bearerToken);
+      if (!decoded || !decoded.userId || decoded.type !== 'bearer') {
+        throw new Error('INVALID_TOKEN');
+      }
+
+      // Buscar sesión por hash (sin filtrar por expires_at en BD)
+      const tokenHash = hashToken(bearerToken);
+      const session = await Session.findByTokenHashAll(tokenHash);
+
+      if (!session) {
+        throw new Error('SESSION_NOT_FOUND');
+      }
+
+      // Validar que la sesión en BD no esté vencida
+      if (new Date(session.expires_at) < new Date()) {
+        throw new Error('SESSION_EXPIRED');
+      }
+
+      // Validar unique_id
+      if (!session.unique_id || session.unique_id !== uniqueId) {
+        throw new Error('UNIQUE_ID_MISMATCH');
+      }
+
+      // Verificar que el usuario esté activo
+      const user = await User.findById(decoded.userId);
+      if (!user || !user.is_active) {
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      // Verificar sesión de Google activa
+      const hasGoogleSession = await GoogleService.hasActiveGoogleSession(user.id);
+      if (!hasGoogleSession) {
+        await AuditLog.logAuthorization(user.id, ipAddress, userAgent, false, {
+          reason: 'NO_GOOGLE_SESSION',
+          sessionId: session.id
+        });
+        throw new Error('GOOGLE_SESSION_EXPIRED');
+      }
+
+      // Revocar sesión anterior
+      await Session.revoke(session.id);
+
+      // Generar nuevo bearer token
+      const newBearerToken = generateBearerToken({
+        userId: user.id,
+        email: user.email,
+        type: 'bearer'
+      });
+
+      const expiresAt = new Date(Date.now() + config.tokens.bearerExpiry * 1000);
+
+      // Crear nueva sesión
+      const newTokenHash = hashToken(newBearerToken);
+      const newSession = await Session.create({
+        userId: user.id,
+        bearerTokenHash: newTokenHash,
+        uniqueId: uniqueId,
+        expiresAt: expiresAt,
+        ipAddress: ipAddress,
+        userAgent: userAgent
+      });
+
+      // Log de auditoría
+      await AuditLog.logTokenExtension(user.id, ipAddress, userAgent, {
+        sessionId: newSession.id,
+        oldSessionId: session.id,
+        renewed: true,
+        newExpiresAt: expiresAt
+      });
+
+      // Imagen base64 si existe
+      let profileImgBase64 = null;
+      if (user.profile_img_int) {
+        const fs = require('fs');
+        const path = require('path');
+        const imgPath = path.join(__dirname, '../../user_data', user.profile_img_int);
+        try {
+          const imgData = fs.readFileSync(imgPath);
+          profileImgBase64 = imgData.toString('base64');
+        } catch (err) {
+          profileImgBase64 = null;
+        }
+      }
+
+      return {
+        bearerToken: newBearerToken,
+        expiresAt: expiresAt,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          photo: user.photo_url,
+          profile_img_base64: profileImgBase64
+        }
+      };
+    } catch (error) {
+      if (error.message !== 'GOOGLE_SESSION_EXPIRED') {
+        await AuditLog.logAuthError(null, ipAddress, userAgent, {
+          error: error.message,
+          token: 'bearer/renew'
+        });
+      }
       throw error;
     }
   }

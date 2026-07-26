@@ -12,6 +12,7 @@ Sistema de Single Sign-On (SSO) completo con gestión de sesiones, tokens JWT y 
 - ✅ Logs de auditoría completos
 - ✅ Trazabilidad con unique_id
 - ✅ Extensión automática de tokens con sesión Google activa
+- ✅ Renovación de tokens expirados (POST /auth/renew)
 - ✅ Revocación de tokens de Google al logout
 - ✅ Rate limiting para prevenir abuso
 - ✅ API RESTful con respuestas JSON
@@ -224,6 +225,25 @@ App Cliente            SSO Service                Google OAuth           MariaDB
    Authorization: Bearer eyJhbGc...
    ```
 
+8. **App renueva token expirado** (cuando recibe 401 por token vencido):
+   ```bash
+   POST https://auth.greenborn.com.ar/auth/renew
+   Authorization: Bearer eyJhbGc...
+   Content-Type: application/json
+
+   { "unique_id": "abc123" }
+   ```
+
+   **Respuesta:**
+   ```json
+   {
+     "success": true,
+     "bearer_token": "nuevo_token",
+     "expires_at": "2026-07-26T18:52:59.000Z",
+     "user": { ... }
+   }
+   ```
+
 > **Nota importante**: La interacción con Google OAuth ocurre completamente dentro del servicio SSO. El usuario nunca sale del dominio `auth.greenborn.com.ar` hasta que se completa la autenticación y se genera el token temporal. Luego, el servicio redirige a la URL de la app cliente especificada en `url_redireccion_app`.
 
 ## 🔌 API Endpoints
@@ -358,6 +378,72 @@ full_info=true   # Opcional, retorna imagen de perfil en base64 si está present
   "require_reauth": true
 }
 ```
+
+---
+
+### `POST /auth/renew`
+
+Renueva un bearer token cuyo JWT haya expirado, siempre que la sesión en base de datos siga vigente y la sesión de Google esté activa.
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Body:**
+```json
+{
+  "unique_id": "req_12345"
+}
+```
+
+**Response (éxito):**
+```json
+{
+  "success": true,
+  "message": "Token renovado exitosamente",
+  "data": {
+    "bearer_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_at": "2026-07-26T18:52:59.000Z",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "name": "John Doe",
+      "photo": "https://..."
+    }
+  }
+}
+```
+
+**Response (sesión vencida):**
+```json
+{
+  "success": false,
+  "message": "La sesión ha expirado, debe autenticarse nuevamente",
+  "error": "SESSION_EXPIRED"
+}
+```
+
+**Response (sesión Google expirada):**
+```json
+{
+  "success": false,
+  "message": "Sesión de Google expirada, se requiere re-autenticación",
+  "error": "GOOGLE_SESSION_EXPIRED",
+  "require_reauth": true
+}
+```
+
+**Códigos de error:**
+| error | Significado |
+|-------|-------------|
+| `SESSION_NOT_FOUND` | Sesión no encontrada o ya fue renovada |
+| `SESSION_EXPIRED` | Sesión en BD vencida, debe re-autenticar |
+| `UNIQUE_ID_MISMATCH` | unique_id no coincide |
+| `GOOGLE_SESSION_EXPIRED` | Sesión de Google terminada |
+| `INVALID_TOKEN` | Token inválido o manipulado |
+
+> **Nota:** Este endpoint no usa el middleware `verifyBearerToken` porque el token puede tener el JWT expirado. Decodifica el token sin verificar expiración y valida contra la base de datos.
 
 ---
 
