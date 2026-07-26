@@ -318,6 +318,84 @@ router.get('/verify',
 );
 
 /**
+ * POST /auth/renew
+ * Renueva un bearer token cuyo JWT haya expirado.
+ * No usa verifyBearerToken middleware porque el token puede estar expirado.
+ * Headers: Authorization: Bearer {token}
+ * Body: { unique_id: "..." }
+ */
+router.post('/renew',
+  extractRequestInfo,
+  async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'Token de autorización no proporcionado',
+          error: 'MISSING_TOKEN'
+        });
+      }
+
+      const token = authHeader.substring(7);
+
+      const { unique_id } = req.body;
+      if (!unique_id || typeof unique_id !== 'string' || unique_id.length < 1 || unique_id.length > 255) {
+        return res.status(400).json({
+          success: false,
+          message: 'unique_id es requerido en el body y debe ser una cadena de 1-255 caracteres',
+          error: 'MISSING_UNIQUE_ID'
+        });
+      }
+
+      const result = await AuthService.renewToken(
+        token,
+        req.clientIp,
+        req.userAgent,
+        unique_id
+      );
+
+      res.json({
+        success: true,
+        message: 'Token renovado exitosamente',
+        data: {
+          bearer_token: result.bearerToken,
+          expires_at: result.expiresAt,
+          user: result.user
+        }
+      });
+    } catch (error) {
+      console.error('Error en renew:', error);
+
+      let statusCode = 401;
+      let errorCode = error.message;
+      let message = 'Error al renovar token';
+
+      if (error.message === 'SESSION_NOT_FOUND') {
+        message = 'Sesión no encontrada o ya fue renovada';
+      } else if (error.message === 'SESSION_EXPIRED') {
+        message = 'La sesión ha expirado, debe autenticarse nuevamente';
+      } else if (error.message === 'USER_NOT_FOUND') {
+        message = 'Usuario no encontrado o inactivo';
+      } else if (error.message === 'UNIQUE_ID_MISMATCH') {
+        message = 'unique_id no coincide con la sesión';
+      } else if (error.message === 'GOOGLE_SESSION_EXPIRED') {
+        message = 'Sesión de Google expirada, se requiere re-autenticación';
+      } else if (error.message === 'INVALID_TOKEN') {
+        message = 'Token inválido';
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        message: message,
+        error: errorCode,
+        require_reauth: error.message === 'GOOGLE_SESSION_EXPIRED'
+      });
+    }
+  }
+);
+
+/**
  * POST /auth/logout
  * Cierra sesión del usuario
  * Headers: Authorization: Bearer {token}

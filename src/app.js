@@ -91,6 +91,7 @@ app.get('/', (req, res) => {
         'GET /auth/google/callback': 'Callback de Google OAuth (uso interno)',
         'POST /auth/login': 'Login con token temporal (Body: { token })',
         'GET /auth/verify': 'Verificar y extender bearer token (Header: Authorization: Bearer {token})',
+        'POST /auth/renew': 'Renovar bearer token expirado (Header: Authorization: Bearer {token}, Body: { unique_id })',
         'POST /auth/logout': 'Cerrar sesión (Header: Authorization: Bearer {token})',
         'GET /auth/sessions': 'Listar sesiones activas (Header: Authorization: Bearer {token})',
         'GET /auth/status': 'Verificar estado de autenticación (opcional bearer token)'

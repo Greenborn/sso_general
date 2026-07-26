@@ -178,8 +178,12 @@ Para ejecutar el servicio en producción usando [pm2](https://pm2.keymetrics.io/
 
 - **GET** `/auth/google` - Iniciar autenticación con Google
 - **GET** `/auth/google/callback` - Callback de Google OAuth (automático)
+- **POST** `/auth/login` - Login con token temporal y obtener bearer token
+- **GET** `/auth/verify` - Verificar y extender bearer token
+- **POST** `/auth/renew` - Renovar bearer token expirado (con sesión BD vigente)
 - **POST** `/auth/logout` - Cerrar sesión
 - **GET** `/auth/logout` - Cerrar sesión (alternativa GET)
+- **GET** `/auth/sessions` - Listar sesiones activas
 - **GET** `/auth/status` - Verificar estado de autenticación
 - **GET** `/auth/success` - Página de éxito después de autenticarse
 - **GET** `/auth/failure` - Página de fallo de autenticación
@@ -195,7 +199,10 @@ Para ejecutar el servicio en producción usando [pm2](https://pm2.keymetrics.io/
 2. Es redirigido a Google para autorizar la aplicación
 3. Google redirige de vuelta a `/auth/google/callback`
 4. Si es exitoso, el usuario es redirigido a `/auth/success`
-5. Si falla, el usuario es redirigido a `/auth/failure`
+5. La app recibe un token temporal y llama `POST /auth/login` para obtener un bearer token
+6. El bearer token se usa en cada petición vía header `Authorization: Bearer <token>`
+7. Periódicamente se llama `GET /auth/verify` para verificar y extender la sesión
+8. Si el token JWT expira, se puede renovar vía `POST /auth/renew` (sin re-autenticar por Google)
 
 ## Estructura del Proyecto
 
