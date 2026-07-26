@@ -75,6 +75,26 @@ class Session {
   }
 
   /**
+   * Renueva una sesión: actualiza el token hash, expiración y datos de cliente en la misma fila
+   */
+  static async renew(id, newTokenHash, newExpiresAt, ipAddress = null, userAgent = null) {
+    const data = {
+      bearer_token_hash: newTokenHash,
+      expires_at: newExpiresAt,
+      updated_at: db.fn.now()
+    };
+
+    if (ipAddress) data.ip_address = ipAddress;
+    if (userAgent) data.user_agent = userAgent;
+
+    await db('sessions')
+      .where({ id })
+      .update(data);
+
+    return this.findById(id);
+  }
+
+  /**
    * Revoca una sesión específica
    */
   static async revoke(id) {

@@ -316,9 +316,6 @@ class AuthService {
         throw new Error('GOOGLE_SESSION_EXPIRED');
       }
 
-      // Revocar sesión anterior
-      await Session.revoke(session.id);
-
       // Generar nuevo bearer token
       const newBearerToken = generateBearerToken({
         userId: user.id,
@@ -328,20 +325,13 @@ class AuthService {
 
       const expiresAt = new Date(Date.now() + config.tokens.bearerExpiry * 1000);
 
-      // Crear nueva sesión
+      // Actualizar la misma sesión con nuevo hash y expiración (evita INSERT duplicado)
       const newTokenHash = hashToken(newBearerToken);
-      const newSession = await Session.create({
-        userId: user.id,
-        bearerTokenHash: newTokenHash,
-        uniqueId: uniqueId,
-        expiresAt: expiresAt,
-        ipAddress: ipAddress,
-        userAgent: userAgent
-      });
+      const renewedSession = await Session.renew(session.id, newTokenHash, expiresAt, ipAddress, userAgent);
 
       // Log de auditoría
       await AuditLog.logTokenExtension(user.id, ipAddress, userAgent, {
-        sessionId: newSession.id,
+        sessionId: renewedSession.id,
         oldSessionId: session.id,
         renewed: true,
         newExpiresAt: expiresAt
