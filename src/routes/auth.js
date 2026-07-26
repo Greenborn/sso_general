@@ -398,6 +398,98 @@ router.post('/renew',
 );
 
 /**
+ * POST /auth/extend
+ * Extiende la fecha de expiración de una sesión sin renovar el token JWT.
+ * No usa verifyBearerToken middleware porque el token puede estar expirado.
+ * Headers: Authorization: Bearer {token}
+ * Body: { unique_id: "...", expires_at?: "ISO date string" }
+ */
+router.post('/extend',
+  extractRequestInfo,
+  async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'Token de autorización no proporcionado',
+          error: 'MISSING_TOKEN'
+        });
+      }
+
+      const token = authHeader.substring(7);
+
+      const { unique_id, expires_at } = req.body;
+      if (!unique_id || typeof unique_id !== 'string' || unique_id.length < 1 || unique_id.length > 255) {
+        return res.status(400).json({
+          success: false,
+          message: 'unique_id es requerido en el body y debe ser una cadena de 1-255 caracteres',
+          error: 'MISSING_UNIQUE_ID'
+        });
+      }
+
+      let newExpiresAt;
+      if (expires_at) {
+        const parsed = new Date(expires_at);
+        if (isNaN(parsed.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: 'expires_at debe ser una fecha ISO válida',
+            error: 'INVALID_EXPIRES_AT'
+          });
+        }
+        newExpiresAt = parsed;
+      } else {
+        newExpiresAt = new Date(Date.now() + config.tokens.bearerExpiry * 1000);
+      }
+
+      const result = await AuthService.extendSession(
+        token,
+        req.clientIp,
+        req.userAgent,
+        unique_id,
+        newExpiresAt
+      );
+
+      res.json({
+        success: true,
+        message: 'Sesión extendida exitosamente',
+        data: {
+          bearer_token: result.bearerToken,
+          expires_at: result.expiresAt,
+          user: result.user
+        }
+      });
+    } catch (error) {
+      console.error('Error en extend:', error);
+
+      let statusCode = 401;
+      let errorCode = error.message;
+      let message = 'Error al extender sesión';
+
+      if (error.message === 'SESSION_NOT_FOUND') {
+        message = 'Sesión no encontrada';
+      } else if (error.message === 'USER_NOT_FOUND') {
+        message = 'Usuario no encontrado o inactivo';
+      } else if (error.message === 'UNIQUE_ID_MISMATCH') {
+        message = 'unique_id no coincide con la sesión';
+      } else if (error.message === 'GOOGLE_SESSION_EXPIRED') {
+        message = 'Sesión de Google expirada, se requiere re-autenticación';
+      } else if (error.message === 'INVALID_TOKEN') {
+        message = 'Token inválido';
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        message: message,
+        error: errorCode,
+        require_reauth: error.message === 'GOOGLE_SESSION_EXPIRED'
+      });
+    }
+  }
+);
+
+/**
  * POST /auth/logout
  * Cierra sesión del usuario
  * Headers: Authorization: Bearer {token}

@@ -63,13 +63,18 @@ class Session {
   /**
    * Extiende la expiración de una sesión
    */
-  static async extendExpiration(id, newExpiresAt) {
+  static async extendExpiration(id, newExpiresAt, ipAddress = null, userAgent = null) {
+    const data = {
+      expires_at: newExpiresAt,
+      updated_at: db.fn.now()
+    };
+
+    if (ipAddress) data.ip_address = ipAddress;
+    if (userAgent) data.user_agent = userAgent;
+
     await db('sessions')
       .where({ id })
-      .update({
-        expires_at: newExpiresAt,
-        updated_at: db.fn.now()
-      });
+      .update(data);
     
     return this.findById(id);
   }

@@ -447,6 +447,71 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
+### `POST /auth/extend`
+
+Extiende la fecha de expiración de una sesión en base de datos **sin renovar el token JWT**. El mismo bearer token sigue siendo válido, solo se actualiza su `expires_at` en la tabla `sessions`.
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Body:**
+```json
+{
+  "unique_id": "req_12345",
+  "expires_at": "2026-08-25T12:00:00.000Z"
+}
+```
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `unique_id` | string | sí | ID único de trazabilidad (1-255 caracteres) |
+| `expires_at` | string (ISO 8601) | no | Nueva fecha de expiración. Si no se envía, se usa `BEARER_TOKEN_EXPIRY` (24h por defecto) desde el momento actual |
+
+**Response (éxito):**
+```json
+{
+  "success": true,
+  "message": "Sesión extendida exitosamente",
+  "data": {
+    "bearer_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_at": "2026-08-25T12:00:00.000Z",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "name": "John Doe",
+      "photo": "https://..."
+    }
+  }
+}
+```
+
+> **Nota:** A diferencia de `/auth/renew`, el `bearer_token` devuelto es exactamente el mismo que se envió en el header. No se genera un nuevo JWT.
+
+**Response (error):**
+```json
+{
+  "success": false,
+  "message": "Sesión no encontrada",
+  "error": "SESSION_NOT_FOUND"
+}
+```
+
+**Códigos de error:**
+| error | Significado |
+|-------|-------------|
+| `SESSION_NOT_FOUND` | Sesión no encontrada |
+| `UNIQUE_ID_MISMATCH` | unique_id no coincide |
+| `GOOGLE_SESSION_EXPIRED` | Sesión de Google terminada |
+| `USER_NOT_FOUND` | Usuario no encontrado o inactivo |
+| `INVALID_TOKEN` | Token inválido o manipulado |
+| `INVALID_EXPIRES_AT` | expires_at no es una fecha ISO válida |
+
+> **Nota:** Este endpoint no usa el middleware `verifyBearerToken` porque el token puede tener el JWT expirado. Decodifica el token sin verificar expiración y valida contra la base de datos.
+
+---
+
 ### `POST /auth/logout`
 
 

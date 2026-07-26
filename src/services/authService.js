@@ -374,6 +374,85 @@ class AuthService {
   }
 
   /**
+   * Extiende la fecha de expiración de una sesión sin renovar el token JWT.
+   * Mantiene el mismo bearer token, solo actualiza expires_at en BD.
+   */
+  static async extendSession(bearerToken, ipAddress, userAgent, uniqueId, newExpiresAt) {
+    try {
+      const decoded = decodeToken(bearerToken);
+      if (!decoded || !decoded.userId || decoded.type !== 'bearer') {
+        throw new Error('INVALID_TOKEN');
+      }
+
+      const tokenHash = hashToken(bearerToken);
+      const session = await Session.findByTokenHashAll(tokenHash);
+
+      if (!session) {
+        throw new Error('SESSION_NOT_FOUND');
+      }
+
+      if (!session.unique_id || session.unique_id !== uniqueId) {
+        throw new Error('UNIQUE_ID_MISMATCH');
+      }
+
+      const user = await User.findById(decoded.userId);
+      if (!user || !user.is_active) {
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      const hasGoogleSession = await GoogleService.hasActiveGoogleSession(user.id);
+      if (!hasGoogleSession) {
+        await AuditLog.logAuthorization(user.id, ipAddress, userAgent, false, {
+          reason: 'NO_GOOGLE_SESSION',
+          sessionId: session.id
+        });
+        throw new Error('GOOGLE_SESSION_EXPIRED');
+      }
+
+      await Session.extendExpiration(session.id, newExpiresAt, ipAddress, userAgent);
+
+      await AuditLog.logTokenExtension(user.id, ipAddress, userAgent, {
+        sessionId: session.id,
+        extendedOnly: true,
+        newExpiresAt
+      });
+
+      let profileImgBase64 = null;
+      if (user.profile_img_int) {
+        const fs = require('fs');
+        const path = require('path');
+        const imgPath = path.join(__dirname, '../../user_data', user.profile_img_int);
+        try {
+          const imgData = fs.readFileSync(imgPath);
+          profileImgBase64 = imgData.toString('base64');
+        } catch (err) {
+          profileImgBase64 = null;
+        }
+      }
+
+      return {
+        bearerToken,
+        expiresAt: newExpiresAt,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          photo: user.photo_url,
+          profile_img_base64: profileImgBase64
+        }
+      };
+    } catch (error) {
+      if (error.message !== 'GOOGLE_SESSION_EXPIRED') {
+        await AuditLog.logAuthError(null, ipAddress, userAgent, {
+          error: error.message,
+          token: 'bearer/extend'
+        });
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Cierra sesión del usuario
    */
   static async logout(bearerToken, ipAddress, userAgent) {

@@ -1,6 +1,15 @@
 const rateLimit = require('express-rate-limit');
 const config = require('../config/config');
 
+const isLocalhost = (req) => {
+  const ip = req.ip || req.connection?.remoteAddress;
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+};
+
+const skipRateLimit = (req) => {
+  return isLocalhost(req) || (config.server.nodeEnv === 'development' && process.env.DISABLE_RATE_LIMIT === 'true');
+};
+
 /**
  * Rate limiter general para todas las rutas
  */
@@ -14,10 +23,7 @@ const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => {
-    // No aplicar rate limiting en desarrollo si está configurado
-    return config.server.nodeEnv === 'development' && process.env.DISABLE_RATE_LIMIT === 'true';
-  }
+  skip: skipRateLimit
 });
 
 /**
@@ -34,9 +40,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  skip: (req) => {
-    return config.server.nodeEnv === 'development' && process.env.DISABLE_RATE_LIMIT === 'true';
-  }
+  skip: skipRateLimit
 });
 
 /**
@@ -52,9 +56,7 @@ const verifyLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => {
-    return config.server.nodeEnv === 'development' && process.env.DISABLE_RATE_LIMIT === 'true';
-  }
+  skip: skipRateLimit
 });
 
 module.exports = {
