@@ -68,6 +68,7 @@ build/
 tmp/
 
 # Runtime data
+user_data/
 pids
 *.pid
 *.seed

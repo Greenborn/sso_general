@@ -18,9 +18,9 @@ echo -e "${CYAN}=============================================${NC}"
 SSH_PORT=22
 PM2_NAME="sso-google-auth"
 BRANCH=""
-DEPLOY_PATH=""
+DEPLOY_PATH="/var/www/sso_general"
 SSH_HOST=""
-SSH_USER=""
+SSH_USER="root"
 SSH_PASSWORD=""
 SSH_KEY=""
 AUTH_MODE="" # password o key
@@ -90,10 +90,6 @@ if [[ -z "$SSH_HOST" ]]; then
   read -r -p "  Host del servidor (IP o dominio): " SSH_HOST
 fi
 
-if [[ -z "$SSH_USER" ]]; then
-  read -r -p "  Usuario SSH: " SSH_USER
-fi
-
 if [[ -z "$AUTH_MODE" ]]; then
   echo "  Método de autenticación:"
   echo "    1) Contraseña"
@@ -118,14 +114,14 @@ if [[ -z "$BRANCH" ]]; then
   BRANCH="${input_branch:-main}"
 fi
 
-if [[ -z "$DEPLOY_PATH" ]]; then
-  read -r -p "  Ruta de instalación en el servidor (ej: /var/www/sso_general): " DEPLOY_PATH
-fi
-
 if [[ -z "$PM2_NAME" ]]; then
   read -r -p "  Nombre del proceso PM2 (default: sso-google-auth): " input_pm2
   PM2_NAME="${input_pm2:-sso-google-auth}"
 fi
+
+echo -e "  Usuario SSH:  ${CYAN}$SSH_USER${NC}"
+echo -e "  Ruta:         ${CYAN}$DEPLOY_PATH${NC}"
+echo -e "  PM2 proceso:  ${CYAN}$PM2_NAME${NC}"
 
 echo -e "${GREEN}  ✓ Parámetros configurados${NC}"
 
