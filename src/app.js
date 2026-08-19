@@ -76,7 +76,7 @@ const sessionStore = new MySQLStore({
   password: config.database.password,
   database: config.database.name,
   createDatabaseTable: true,
-  schema: { tableName: 'sessions' },
+  schema: { tableName: 'oauth_sessions' },
   expiration: 24 * 60 * 60 * 1000,
   checkExpirationInterval: 15 * 60 * 1000
 });
