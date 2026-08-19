@@ -523,16 +523,12 @@ router.post('/logout',
         req.userAgent
       );
 
-      // También cerrar sesión de Passport si existe
-      if (req.session) {
-        req.logout((err) => {
-          if (err) console.error('Error en passport logout:', err);
-        });
-        
-        req.session.destroy((err) => {
-          if (err) console.error('Error destruyendo sesión:', err);
-        });
-      }
+      // Cerrar sesión destruyendo la sesión completa (incluye el usuario Passport).
+      // No usar req.logout() junto con req.session.destroy(): la carrera entre ambos
+      // provoca "Cannot read properties of undefined (reading 'regenerate')" y mata el proceso.
+      req.session.destroy((err) => {
+        if (err) console.error('Error destruyendo sesión:', err);
+      });
 
       res.clearCookie('connect.sid');
 

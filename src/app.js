@@ -3,11 +3,21 @@ const session = require('express-session');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const MySQLStore = require('express-mysql-session')(session);
 const { passport } = require('./config/passportDynamic');
 const config = require('./config/config');
 
 // Importar base de datos (inicializa conexión)
 require('./config/database');
+
+// Handlers globales para evitar que Node mate el proceso ante errores no capturados.
+// Un crash del proceso provoca ventanas de error 502 (Nginx no tiene upstream).
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled Promise Rejection (el proceso continúa):', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception (el proceso continúa):', err);
+});
 
 // Importar middlewares
 const { generalLimiter } = require('./middleware/rateLimiter');
@@ -58,8 +68,19 @@ if (config.server.nodeEnv === 'development') {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configuración de sesiones
-app.use(session(config.session));
+// Configuración de sesiones (store persistente en MariaDB para evitar el MemoryStore)
+const sessionStore = new MySQLStore({
+  host: config.database.host,
+  port: config.database.port,
+  user: config.database.user,
+  password: config.database.password,
+  database: config.database.name,
+  createDatabaseTable: true,
+  schema: { tableName: 'sessions' },
+  expiration: 24 * 60 * 60 * 1000,
+  checkExpirationInterval: 15 * 60 * 1000
+});
+app.use(session({ ...config.session, store: sessionStore }));
 
 // Inicialización de Passport
 app.use(passport.initialize());
