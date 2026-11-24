@@ -126,6 +126,73 @@ echo -e "  PM2 proceso:  ${CYAN}$PM2_NAME${NC}"
 echo -e "${GREEN}  ✓ Parámetros configurados${NC}"
 
 # ============================================
+# INCREMENTAR VERSIÓN (PATCH) EN package.json
+# ============================================
+# BUMP_BEGIN
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PKG_FILE="$PROJECT_DIR/package.json"
+
+echo -e "\n${YELLOW}  → Incrementando versión patch en package.json...${NC}"
+
+if [[ ! -f "$PKG_FILE" ]]; then
+  echo -e "${RED}Error: No existe package.json en: $PKG_FILE${NC}"
+  exit 1
+fi
+
+if ! BUMP_RESULT=$(node -e '
+const fs = require("fs");
+const file = process.argv[1];
+const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+const actual = pkg.version || "";
+const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(actual);
+if (!m) {
+  console.error(`Error: la versión "${actual}" en package.json no tiene formato x.y.z`);
+  process.exit(1);
+}
+const anterior = actual;
+const nueva = `${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
+pkg.version = nueva;
+fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
+console.log(`${anterior} ${nueva}`);
+' "$PKG_FILE"); then
+  echo -e "${RED}  No se pudo incrementar la versión de package.json.${NC}"
+  exit 1
+fi
+
+VERSION_ANTERIOR="${BUMP_RESULT% *}"
+VERSION_NUEVA="${BUMP_RESULT#* }"
+echo -e "  Versión anterior: ${CYAN}$VERSION_ANTERIOR${NC}"
+echo -e "  Versión nueva:    ${CYAN}$VERSION_NUEVA${NC}"
+
+# Commit + push del bump para que el git pull del servidor reciba la misma versión.
+# Se hace sobre la rama que se va a desplegar; si algo falla, se corta antes de tocar el servidor.
+CURRENT_BRANCH="$(git -C "$PROJECT_DIR" branch --show-current)"
+if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
+  echo -e "${RED}Error: el repo local está en la rama '$CURRENT_BRANCH' y se desplegará '$BRANCH'.${NC}"
+  echo -e "${RED}  Cambia de rama o revierte package.json antes de reintentar.${NC}"
+  exit 1
+fi
+
+if ! git -C "$PROJECT_DIR" add package.json; then
+  echo -e "${RED}  No se pudo agregar package.json al índice de git.${NC}"
+  exit 1
+fi
+
+if ! git -C "$PROJECT_DIR" commit -m 'chore: bump versión (+0.0.1)'; then
+  echo -e "${RED}  No se pudo commitear el bump de versión.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}  ✓ Bump commiteado${NC}"
+
+if ! git -C "$PROJECT_DIR" push origin "$BRANCH"; then
+  echo -e "${RED}  No se pudo pushear el bump a origin/$BRANCH. El servidor no recibirá la nueva versión.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}  ✓ Bump pusheado a origin/$BRANCH (versión $VERSION_NUEVA)${NC}"
+# BUMP_END
+
+# ============================================
 # CONSTRUIR COMANDO SSH
 # ============================================
 SSH_OPTS="-p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
