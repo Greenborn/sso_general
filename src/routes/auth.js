@@ -6,6 +6,7 @@ const { authLimiter, verifyLimiter } = require('../middleware/rateLimiter');
 const AuthService = require('../services/authService');
 const AuditLog = require('../models/AuditLog');
 const AllowedApp = require('../models/AllowedApp');
+const { renderErrorPage, FAILURE_MESSAGES, DEFAULT_FAILURE } = require('../utils/errorPage');
 const { passport, registerGoogleStrategy, getStrategyName } = require('../config/passportDynamic');
 
 const router = express.Router();
@@ -672,13 +673,15 @@ router.get('/success', async (req, res) => {
  * GET /auth/failure (legacy endpoint)
  */
 router.get('/failure', (req, res) => {
-  const error = req.query.error || 'UNKNOWN_ERROR';
-  
-  res.status(401).json({
-    success: false,
-    message: 'Fallo en la autenticación con Google',
-    error: error
-  });
+  const error = String(req.query.error || 'UNKNOWN_ERROR');
+  const info = FAILURE_MESSAGES[error] || DEFAULT_FAILURE;
+
+  res.status(401).type('html').send(renderErrorPage({
+    status: 401,
+    title: info.title,
+    message: info.message,
+    code: error
+  }));
 });
 
 module.exports = router;

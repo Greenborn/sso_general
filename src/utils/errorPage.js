@@ -173,4 +173,40 @@ const renderErrorPage = ({ status, title, message, code, detail }) => {
 </html>`;
 };
 
-module.exports = { renderErrorPage, escapeHtml };
+/**
+ * Mensajes amigables para los códigos de error usados en las redirecciones
+ * a /auth/failure?error=CODIGO
+ */
+const FAILURE_MESSAGES = {
+  OAUTH_CREDENTIALS_NOT_FOUND: {
+    title: 'Aplicación sin credenciales de Google',
+    message: 'La aplicación que intentó iniciar sesión todavía no tiene configuradas sus credenciales de Google OAuth en el servicio SSO. Pide al administrador que registre el client_id y client_secret de la aplicación.'
+  },
+  APP_ID_NOT_FOUND: {
+    title: 'Aplicación no registrada',
+    message: 'La URL de redirección no pertenece a ninguna aplicación registrada en el SSO.'
+  },
+  OAUTH_INIT_ERROR: {
+    title: 'No se pudo iniciar el login',
+    message: 'Ocurrió un problema al preparar la autenticación con Google. Intenta nuevamente en unos minutos.'
+  },
+  OAUTH_CALLBACK_ERROR: {
+    title: 'Error en la respuesta de Google',
+    message: 'Google devolvió un error al completar la autenticación. Vuelve a intentarlo.'
+  },
+  MISSING_PARAMS: {
+    title: 'Faltan datos de la sesión',
+    message: 'No se encontraron los datos necesarios para completar el login. Vuelve a iniciar el proceso desde la aplicación.'
+  },
+  AUTH_ERROR: {
+    title: 'Fallo en la autenticación',
+    message: 'No fue posible completar la autenticación con Google.'
+  }
+};
+
+const DEFAULT_FAILURE = {
+  title: 'Fallo en la autenticación',
+  message: 'No fue posible completar la autenticación con Google.'
+};
+
+module.exports = { renderErrorPage, escapeHtml, FAILURE_MESSAGES, DEFAULT_FAILURE };
