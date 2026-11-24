@@ -1,5 +1,22 @@
 const validator = require('validator');
 const AllowedApp = require('../models/AllowedApp');
+const { renderErrorPage } = require('../utils/errorPage');
+
+/**
+ * Responde con una página HTML de error (el usuario llega aquí desde el navegador)
+ */
+const sendRedirectErrorPage = (res, { status, message, error, detail }) => {
+  return res
+    .status(status)
+    .type('html')
+    .send(renderErrorPage({
+      status,
+      title: 'URL de redirección no válida',
+      message,
+      code: error,
+      detail
+    }));
+};
 
 /**
  * Middleware para validar parámetros de la petición OAuth
@@ -26,9 +43,9 @@ const validateOAuthParams = async (req, res, next) => {
 
   // Validar url_redireccion_app (obligatorio)
   if (!url_redireccion_app) {
-    return res.status(400).json({
-      success: false,
-      message: 'El parámetro url_redireccion_app es obligatorio',
+    return sendRedirectErrorPage(res, {
+      status: 400,
+      message: 'No se recibió la URL de redirección de tu aplicación. Vuelve a intentarlo desde la aplicación.',
       error: 'MISSING_REDIRECT_URL'
     });
   }
@@ -38,10 +55,11 @@ const validateOAuthParams = async (req, res, next) => {
   try {
     decodedUrl = decodeURIComponent(url_redireccion_app);
   } catch (e) {
-    return res.status(400).json({
-      success: false,
-      message: 'El parámetro url_redireccion_app no es una URL válida (error de codificación)',
-      error: 'INVALID_REDIRECT_URL_ENCODING'
+    return sendRedirectErrorPage(res, {
+      status: 400,
+      message: 'La URL de redirección tiene un formato de codificación inválido.',
+      error: 'INVALID_REDIRECT_URL_ENCODING',
+      detail: url_redireccion_app
     });
   }
 
@@ -57,10 +75,11 @@ const validateOAuthParams = async (req, res, next) => {
   //console.log('Resultado de validación básica de URL:', isValidUrl);
 
   if (!isValidUrl) {
-    return res.status(400).json({
-      success: false,
-      message: 'El parámetro url_redireccion_app debe comenzar con http:// o https://',
-      error: 'INVALID_REDIRECT_URL'
+    return sendRedirectErrorPage(res, {
+      status: 400,
+      message: 'La URL de redirección debe comenzar con http:// o https://.',
+      error: 'INVALID_REDIRECT_URL',
+      detail: decodedUrl
     });
   }
 
@@ -69,10 +88,11 @@ const validateOAuthParams = async (req, res, next) => {
   //console.log('Resultado de isUrlAllowed:', isAllowed);
 
   if (!isAllowed) {
-    return res.status(403).json({
-      success: false,
-      message: 'La URL de redirección no está autorizada',
-      error: 'UNAUTHORIZED_REDIRECT_URL'
+    return sendRedirectErrorPage(res, {
+      status: 403,
+      message: 'La URL de redirección no está autorizada para ninguna aplicación registrada en el SSO.',
+      error: 'UNAUTHORIZED_REDIRECT_URL',
+      detail: decodedUrl
     });
   }
 
